@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "readLNM"
+version = "0.1.0"
+description = "basic programm to communicate with Thies LNM"
+readme = "README.md"
+requires-python = ">=3.13"
+authors = [
+  { name = "Julian Zager" }
+]
+
+
+dependencies = [
+  "pyserial",
+  "pyserial-asyncio",
+  "pandas",
+  "matplotlib",
+  "generic-utils @ git+ssh://git@github.com/j-zager/generic-utils.git@v0.1.1"
+]
+
+[project.scripts]
+comLnm = "readLnm.communicateLnm:communicate"
+
+
+
+
+
