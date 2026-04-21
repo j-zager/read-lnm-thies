@@ -38,9 +38,14 @@ async def main():
 
 async def do_single_request(msg: bytes = b"00SV\r"):
 
+    # 0. SET oder READ?
+    is_set = (len(msg) == 10)
+    expects_response = not is_set
+
     # 1. Port öffnen
     reader, writer = await comAsyncioSerialRS232.initSerialRS232Async(
-        port="COM1",
+        # port="COM1", # Windows
+        port="proxy:/dev/pts/4", #Linux
         baudrate=9600,
         bytesize=serial.EIGHTBITS,
         parity=serial.PARITY_EVEN,
@@ -56,19 +61,24 @@ async def do_single_request(msg: bytes = b"00SV\r"):
 
     if not ok:
         logger.error("Senden fehlgeschlagen")
+        await comAsyncioSerialRS232.closeAllPorts({"COM1": (reader, writer)})
         return
 
     # 3. Antwort empfangen (z. B. 10 ASCII-Zeichen)
-    response = await comAsyncioSerialRS232.receiveBytesAsync(
-        reader,
-        numBytes=10,
-        timeout=1.0
-    )
+    response = None
+    if expects_response:
+        response = await comAsyncioSerialRS232.receiveBytesAsync(
+            reader,
+            numBytes=10,
+            timeout=1.0
+        )
 
-    if response:
-        logger.info(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}")
+        if response:
+            logger.info(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}")
+        else:
+            logger.warning("Timeout oder keine Antwort (obwohl erwartet!)")
     else:
-        logger.warning("Timeout oder keine Antwort")
+        logger.info("SET-Befehl → keine Antwort erwartet")
 
     # 4. Port schließen
     await comAsyncioSerialRS232.closeAllPorts({"COM1": (reader, writer)})

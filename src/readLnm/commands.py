@@ -34,6 +34,21 @@ COMMANDS = {
     "YD": {"desc": "Distribution data (3-4 chars)",    "set": True,  "range": (0, 9999)},
 }
 
+def is_set_command(msg: bytes) -> bool:
+    # 5 Zeichen = READ
+    # 10 Zeichen = SET
+    length = len(msg)
+
+    if length == 5:
+        return False  # READ → Antwort erwartet
+
+    if length == 10:
+        return True   # SET → keine Antwort
+
+    # Alles andere ist ungültig
+    raise ValueError(f"Ungültige Telegrammlänge: {length}")
+
+
 def input_command()-> str:
     while True:
         cmd = input("Befehl eingeben: ").strip().upper()
