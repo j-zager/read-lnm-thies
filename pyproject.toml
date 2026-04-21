@@ -22,7 +22,7 @@ dependencies = [
 ]
 
 [project.scripts]
-comLnm = "readLnm.communicateLnm:communicate"
+comLnmThies = "readLnm.communicateLnm:communicate"
 
 
 
