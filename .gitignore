@@ -67,3 +67,5 @@ Temporary / Duplicate Files
 Kopie.*
 CalibratorConfig*.*
 
+*.log
+
