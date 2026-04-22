@@ -32,6 +32,15 @@ COMMANDS = {
     "HB": {"desc": "Heating holder (0/1)",             "set": True,  "range": (0, 1)},
     "HG": {"desc": "Heating housing (0/1)",            "set": True,  "range": (0, 1)},
     "YD": {"desc": "Distribution data (3-4 chars)",    "set": True,  "range": (0, 9999)},
+    "AC": {"desc": "Mittelungstrigger",                "set": False},
+    "AG": {"desc": "Abgleich Groeßenmessung",          "set": False},
+    "AP": {"desc": "Analoge Versorgung",               "set": False},
+    "AX": {"desc": "Abgleich 100 Ohm Referenz",        "set": False},
+    "AY": {"desc": "Abgleich 127 Ohm Referenz",        "set": False},
+    "AZ": {"desc": "Zeitkalibration",                  "set": False},
+    "OR": {"desc": "Ausgaberate",                      "set": False},
+    "TC": {"desc": "Interner Trigger",                 "set": False},
+    "TV": {"desc": "Interner Triggerwert",             "set": False},
 }
 
 def is_set_command(msg: bytes) -> bool:

@@ -1,6 +1,7 @@
 import asyncio
 import serial
 import serial_asyncio
+import platform
 
 from generic_utils.comm import comAsyncioSerialRS232
 from generic_utils.io.loggerConfig import getLogger
@@ -36,19 +37,37 @@ async def main():
     await asyncio.gather(task1, task2)
 
 
+
+
+def get_default_port()->str:
+    if platform.system() == "Windows":
+        return "COM1"
+    else:
+        return "/dev/pts/4"   # oder dynamisch ermitteln
+
+def request_port()->str:
+    if platform.system() == "Windows":
+        portUser = input("Port eingeben (z.B. COM1 ): ")
+        return portUser
+    else:
+        portUser = input("Port eingeben (z.B. /dev/pts/4): ")
+        return portUser
+
+
 async def do_single_request(msg: bytes = b"00SV\r"):
 
+    portSys = get_default_port()
     # 0. SET oder READ?
     is_set = (len(msg) == 10)
     expects_response = not is_set
 
     # 1. Port öffnen
     reader, writer = await comAsyncioSerialRS232.initSerialRS232Async(
-        # port="COM1", # Windows
-        port="proxy:/dev/pts/4", #Linux
+        port=portSys, 
         baudrate=9600,
         bytesize=serial.EIGHTBITS,
-        parity=serial.PARITY_EVEN,
+        parity=serial.PARITY_NONE,
+        #parity=serial.PARITY_EVEN, #für richtigen Thies Kommuniaktion
         stopbits=serial.STOPBITS_ONE
     )
 

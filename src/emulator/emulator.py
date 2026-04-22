@@ -6,7 +6,8 @@ def run_emulator(port="/dev/pts/5"):
         port,
         baudrate=9600,
         bytesize=serial.EIGHTBITS,
-        parity=serial.PARITY_EVEN,
+        parity=serial.PARITY_NONE,
+        #parity=serial.PARITY_EVEN,
         stopbits=serial.STOPBITS_ONE,
         timeout=1
     )
