@@ -2,12 +2,13 @@ import serial
 import sys
 
 def run_emulator(port="/dev/pts/5"):
+    par=serial.PARITY_NONE
+    #parity=serial.PARITY_EVEN
     ser = serial.Serial(
         port,
         baudrate=9600,
         bytesize=serial.EIGHTBITS,
-        parity=serial.PARITY_NONE,
-        #parity=serial.PARITY_EVEN,
+        parity=par,
         stopbits=serial.STOPBITS_ONE,
         timeout=1
     )

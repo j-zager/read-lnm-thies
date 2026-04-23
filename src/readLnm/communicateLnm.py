@@ -4,6 +4,7 @@ from readLnm.commands import cli_menu #COMMANDS, input_device_id, input_command,
 from readLnm.comRs232 import do_single_request
 from generic_utils.comm import comAsyncioSerialRS232 
 import serial
+from readLnm.serialRS485 import do_single_message
 
 logger = getLogger("ThiesLNM comm log")
 
@@ -64,6 +65,7 @@ async def run_fsm():
             case State.SEND_MESSAGE:
                 print("STATE: SEND_MESSAGE")
                 response = await do_single_request(msg)
+                response = await do_single_message(msg)
                 fsm_state = State.CHECK_MESSAGE
                 continue
 
