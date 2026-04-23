@@ -1,10 +1,9 @@
 import asyncio
 import serial
 import serial.tools.list_ports
-# import serial_asyncio
-# import time
 from generic_utils.io.loggerConfig import getSerialLogger 
 import platform
+from readLnm.handleVirtualPorts import  smart_select_port
 
 
 logger = getSerialLogger()
@@ -231,9 +230,18 @@ def choose_serial_port() -> str | None:
             print("Index out of range, try again")
 
 
-async def do_single_message(msg: bytes = b"00SV\r"):
+async def do_single_message(msg: bytes = b"00SV\r",virtualPort:int=None):
     # port = choose_serial_port()
-    port = "/dev/pts/4" 
+    #port = "/dev/pts/4" 
+    # port = smart_select_port(portId=0)
+
+    if virtualPort is None:
+        port = choose_serial_port()
+    else:
+        port = virtualPort
+
+    logger.info(f"used Port{port}")
+
     # PTYs (socat) cannot handle parity
     if "/dev/pts/" in port:
         logger.info("Detected PTY → using PARITY_NONE for testing")

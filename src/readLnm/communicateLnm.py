@@ -2,6 +2,7 @@ import asyncio
 from generic_utils.io.loggerConfig import getLogger
 from readLnm.commands import cli_menu #COMMANDS, input_device_id, input_command, input_value, build_message
 from readLnm.serialRS485 import do_single_message
+from readLnm.handleVirtualPorts import init_virtual_port_selection
 
 logger = getLogger("ThiesLNM comm log")
 
@@ -28,6 +29,7 @@ async def run_fsm():
             # -------------------------
             case State.INIT:
                 print("STATE: INIT")
+                virtualPort = init_virtual_port_selection()
                 fsm_state = State.REQUEST_MESSAGE
                 continue
 
@@ -52,7 +54,7 @@ async def run_fsm():
             # -------------------------
             case State.SEND_MESSAGE:
                 print("STATE: SEND_MESSAGE")
-                response = await do_single_message(msg)
+                response = await do_single_message(msg,virtualPort)
                 fsm_state = State.CHECK_MESSAGE
                 continue
 

@@ -1,7 +1,9 @@
 import serial
 import sys
 
-def run_emulator(port="/dev/pts/5"):
+# python3 -m emulator.emulator /dev/pts/4
+
+def run_emulator(port="/dev/pts/4"):
     par=serial.PARITY_NONE
     #parity=serial.PARITY_EVEN
     ser = serial.Serial(
