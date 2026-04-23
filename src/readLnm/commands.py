@@ -106,7 +106,7 @@ def cli_menu():
     print("=== LNM Thies RS232 CLI Menü ===")
     print("1) Lesen")
     print("2) Setzen")
-    print("======================")
+    print("================================")
 
     mode = input("Modus wählen (1/2): ").strip()
     while mode not in ("1", "2"):

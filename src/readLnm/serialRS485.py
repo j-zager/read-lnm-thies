@@ -234,6 +234,15 @@ def choose_serial_port() -> str | None:
 async def do_single_message(msg: bytes = b"00SV\r"):
     # port = choose_serial_port()
     port = "/dev/pts/4" 
+    # PTYs (socat) cannot handle parity
+    if "/dev/pts/" in port:
+        logger.info("Detected PTY → using PARITY_NONE for testing")
+        par = serial.PARITY_NONE
+
+    # Real hardware → use EVEN parity
+    else:
+        logger.info("Detected real serial device → using PARITY_EVEN")
+        par = serial.PARITY_EVEN
 
     if port is None:
         return
@@ -246,8 +255,7 @@ async def do_single_message(msg: bytes = b"00SV\r"):
     ser = open_port(port=port,
                     baudrate=9600,
                     bytesize=serial.EIGHTBITS,
-                    # parity=serial.PARITY_EVEN,
-                    parity=serial.PARITY_NONE,
+                    parity=par,
                     stopbits=serial.STOPBITS_ONE)
 
     if ser is None:

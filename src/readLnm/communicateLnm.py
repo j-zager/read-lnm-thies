@@ -1,9 +1,6 @@
 import asyncio
 from generic_utils.io.loggerConfig import getLogger
 from readLnm.commands import cli_menu #COMMANDS, input_device_id, input_command, input_value, build_message
-from readLnm.comRs232 import do_single_request
-from generic_utils.comm import comAsyncioSerialRS232 
-import serial
 from readLnm.serialRS485 import do_single_message
 
 logger = getLogger("ThiesLNM comm log")
@@ -31,15 +28,6 @@ async def run_fsm():
             # -------------------------
             case State.INIT:
                 print("STATE: INIT")
-                # Setup, Ports öffnen, Variablen initialisieren
-                # 1. Port öffnen
-                # reader, writer = await comAsyncioSerialRS232.initSerialRS232Async(
-                #     port="COM1",
-                #     baudrate=9600,
-                #     bytesize=serial.EIGHTBITS,
-                #     parity=serial.PARITY_EVEN,
-                #     stopbits=serial.STOPBITS_ONE
-                # )
                 fsm_state = State.REQUEST_MESSAGE
                 continue
 
@@ -64,7 +52,6 @@ async def run_fsm():
             # -------------------------
             case State.SEND_MESSAGE:
                 print("STATE: SEND_MESSAGE")
-                response = await do_single_request(msg)
                 response = await do_single_message(msg)
                 fsm_state = State.CHECK_MESSAGE
                 continue
@@ -101,14 +88,6 @@ async def run_fsm():
             # -------------------------
             case State.EXIT:
                 print("STATE: EXIT")
-                #  Port schließen
-                # await comAsyncioSerialRS232.closeAllPorts({"COM1": (reader, writer)})
-                # Hier sauber schließen:
-                # - Ports schließen
-                # - Writer flushen
-                # - Logging beenden
-                # - Dateien schließen
-                # - Cleanup
                 print("Alle Ressourcen wurden freigegeben. Programm endet.")
                 break
 
