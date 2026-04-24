@@ -167,6 +167,219 @@ async def read_bytes(ser: serial.Serial, num: int, timeout: float = 1.0)->bytear
     except Exception as e:
         logger.error(f"Receiving error:{e}")
         return bytearray()
+   
+
+
+async def read_bytes_endmarkerOld(
+    ser: serial.Serial,
+    num: int,
+    timeout: float = 1.0,
+    endmarker: bytes = b"\x0D\x0A\x03"
+) -> bytearray | None:
+
+    if ser is None or not ser.is_open:
+        logger.error("read_bytes: port is not opened")
+        return None
+
+    if num <= 0:
+        logger.error("read_bytes: num must be > 0")
+        raise ValueError("num must be > 0")
+
+    end_time = asyncio.get_event_loop().time() + timeout
+
+    buffer = bytearray()      # zum Finden des Endmarkers
+    result = bytearray()      # echte Nutzdaten nach dem Marker
+    collecting = False        # erst sammeln, wenn Marker gefunden wurde
+
+    try:
+        while True:
+            # Timeout prüfen
+            if asyncio.get_event_loop().time() > end_time:
+                logger.warning(f"Timeout while waiting for endmarker or {num} bytes")
+                return None
+
+            # Wenn keine Daten da → kurz warten
+            if ser.in_waiting == 0:
+                await asyncio.sleep(0.001)
+                continue
+
+            # Lesen (immer nur 1 Byte, um Marker sicher zu erkennen)
+            chunk = ser.read(1)
+            if not chunk:
+                continue
+
+            # logger.debug(f"RX 1 byte: {chunk.hex(' ')}")
+
+            # Noch nicht im Sammelmodus → nach Endmarker suchen
+            if not collecting:
+                buffer.extend(chunk)
+
+                # Endmarker erkannt?
+                if buffer.endswith(endmarker):
+                    logger.info("Endmarker erkannt – beginne Nutzdaten zu sammeln")
+                    collecting = True
+                    buffer.clear()  # alles davor verwerfen
+                continue
+
+            # Ab hier sammeln wir echte Nutzdaten
+            result.extend(chunk)
+
+            # Genug Bytes gesammelt?
+            if len(result) >= num:
+                # logger.info(f"Received full response ({len(result)} bytes)")
+                logger.debug(f"RX {len(result)} bytes: {result.hex(' ')}")
+                return result
+
+    except Exception as e:
+        logger.error(f"Receiving error:{e}")
+        return bytearray()
+
+
+# async def read_bytes_endmarker(
+#     ser: serial.Serial,
+#     num: int,
+#     timeout: float = 1.0,
+#     endmarker: bytes = b"\x0D\x0A\x03"
+# ) -> bytearray | None:
+
+#     if ser is None or not ser.is_open:
+#         logger.error("read_bytes: port is not opened")
+#         return None
+
+#     if num <= 0:
+#         logger.error("read_bytes: num must be > 0")
+#         raise ValueError("num must be > 0")
+
+#     end_time = asyncio.get_event_loop().time() + timeout
+
+#     buffer = bytearray()      # zum Finden des Endmarkers
+#     result = bytearray()      # echte Nutzdaten
+#     collecting = False        # erst sammeln, wenn Marker ODER Nutzdaten kommen
+
+#     try:
+#         while True:
+#             # Timeout
+#             if asyncio.get_event_loop().time() > end_time:
+#                 logger.warning("Timeout while reading")
+#                 return None
+
+#             if ser.in_waiting == 0:
+#                 await asyncio.sleep(0.001)
+#                 continue
+
+#             b = ser.read(1)
+#             if not b:
+#                 continue
+
+#             # logger.debug(f"RX 1 byte: {b.hex(' ')}")
+
+#             # Wenn wir noch nicht sammeln → prüfen ob Endmarker kommt
+#             if not collecting:
+#                 buffer.extend(b)
+
+#                 # Endmarker gefunden → Sammelmodus aktivieren
+#                 if buffer.endswith(endmarker):
+#                     logger.info("Endmarker erkannt – beginne Nutzdaten zu sammeln")
+#                     collecting = True
+#                     buffer.clear()
+#                     continue
+
+#                 # Wenn Daten kommen, die NICHT zum Endmarker gehören → sofort sammeln
+#                 if len(buffer) > len(endmarker):
+#                     logger.info("Keine zyklische Nachricht – beginne sofort zu sammeln")
+#                     collecting = True
+#                     result.extend(buffer)
+#                     buffer.clear()
+#                     continue
+
+#                 continue
+
+#             # Ab hier sammeln wir echte Nutzdaten
+#             result.extend(b)
+
+#             if len(result) >= num:
+#                 logger.debug(f"RX {len(result)} bytes: {result.hex(' ')}")
+#                 return result
+
+#     except Exception as e:
+#         logger.error(f"Receiving error: {e}")
+#         return None
+
+
+async def read_bytes_marker(
+    ser: serial.Serial,
+    num: int,
+    timeout: float = 1.0,
+    stx: bytes = b"\x02",
+    etx: bytes = b"\x03",
+) -> bytearray | None:
+
+    if ser is None or not ser.is_open:
+        logger.error("read_bytes: port is not opened")
+        return None
+
+    if num <= 0:
+        logger.error("read_bytes: num must be > 0")
+        raise ValueError("num must be > 0")
+
+    end_time = asyncio.get_event_loop().time() + timeout
+
+    buffer = bytearray()      # zum Finden von STX/ETX
+    result = bytearray()      # echte Nutzdaten
+    in_cyclic = False         # sind wir gerade in einer zyklischen Nachricht?
+    collecting = False        # sammeln wir Nutzdaten?
+
+    try:
+        while True:
+            # Timeout
+            if asyncio.get_event_loop().time() > end_time:
+                logger.warning("Timeout while reading")
+                return None
+
+            if ser.in_waiting == 0:
+                await asyncio.sleep(0.001)
+                continue
+
+            b = ser.read(1)
+            if not b:
+                continue
+
+            # Noch nicht im Sammelmodus → prüfen auf STX/ETX
+            if not collecting:
+                buffer.extend(b)
+
+                # STX erkannt → wir sind in einer zyklischen Nachricht
+                if buffer.endswith(stx):
+                    in_cyclic = True
+                    buffer.clear()
+                    continue
+
+                # ETX erkannt → zyklische Nachricht zu Ende
+                if in_cyclic and buffer.endswith(etx):
+                    in_cyclic = False
+                    buffer.clear()
+                    continue
+
+                # Wenn wir NICHT in einer zyklischen Nachricht sind
+                # und Daten kommen → das ist die Antwort
+                if not in_cyclic and len(buffer) >= 1:
+                    collecting = True
+                    result.extend(buffer)
+                    buffer.clear()
+                    continue
+
+                continue
+
+            # Ab hier sammeln wir echte Nutzdaten
+            result.extend(b)
+
+            if len(result) >= num:
+                logger.debug(f"RX {len(result)} bytes: {result.hex(' ')}")
+                return result
+
+    except Exception as e:
+        logger.error(f"Receiving error: {e}")
+        return None
 
 
 
@@ -230,69 +443,9 @@ def choose_serial_port() -> str | None:
             print("Index out of range, try again")
 
 
-async def do_single_message(msg: bytes = b"00SV\r",virtualPort:int=None):
-    # port = choose_serial_port()
-    #port = "/dev/pts/4" 
-    # port = smart_select_port(portId=0)
+def flush_serial(ser: serial.Serial):
+    ser.reset_input_buffer()   # Linux/Windows: löscht OS-Puffer
+    ser.reset_output_buffer()
 
-    if virtualPort is None:
-        port = choose_serial_port()
-    else:
-        port = virtualPort
-
-    logger.info(f"used Port{port}")
-
-    # PTYs (socat) cannot handle parity
-    if "/dev/pts/" in port:
-        logger.info("Detected PTY → using PARITY_NONE for testing")
-        par = serial.PARITY_NONE
-
-    # Real hardware → use EVEN parity
-    else:
-        logger.info("Detected real serial device → using PARITY_EVEN")
-        par = serial.PARITY_EVEN
-
-    if port is None:
-        return
-    
-    # 0. SET oder READ?
-    is_set = (len(msg) == 10)
-    expects_response = not is_set
-
-    # 1. Port öffnen
-    ser = open_port(port=port,
-                    baudrate=9600,
-                    bytesize=serial.EIGHTBITS,
-                    parity=par,
-                    stopbits=serial.STOPBITS_ONE)
-
-    if ser is None:
-        logger.error("Port could not be opened")
-        return
-
-    # 2. Nachricht senden
-    ok = await send_bytes(ser=ser, data=bytearray(msg))
-
-    if not ok:
-        logger.error("Sending was not successfull")
-        await close_all_ports({port:ser})
-        return
-    
-    logger.info(f"TX → {bytearray(msg).hex(' ')}  ASCII: {bytearray(msg).decode(errors='ignore')}")
-
-    # 3. Antwort empfangen (z. B. 10 ASCII-Zeichen)
-    response = None
-    if expects_response:
-        response = await read_bytes(ser=ser, num = 10, timeout = 1.0)
-
-        if response:
-            logger.info(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}")
-        else:
-            logger.warning("Timeout or no responsive (response was expected!)")
-    else:
-        logger.info("SET Command → No response expected")
-
-    # 4. Port schließen
-    close_all_ports({port:ser})
 
   
