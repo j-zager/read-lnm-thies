@@ -277,6 +277,8 @@ async def do_single_message(msg: bytes = b"00SV\r",virtualPort:int=None):
         logger.error("Sending was not successfull")
         await close_all_ports({port:ser})
         return
+    
+    logger.info(f"TX → {bytearray(msg).hex(' ')}  ASCII: {bytearray(msg).decode(errors='ignore')}")
 
     # 3. Antwort empfangen (z. B. 10 ASCII-Zeichen)
     response = None

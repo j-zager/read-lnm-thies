@@ -5,6 +5,7 @@ import serial
 import serial.tools.list_ports
 from generic_utils.io.loggerConfig import getSerialLogger 
 import os
+import platform
 
 logger = getSerialLogger()
 
@@ -20,25 +21,37 @@ def init_virtual_port_selection() -> str | None:
 
     if use_virtual == "n":
         return None
+    
+    # Plattform bestimmen
+    system = platform.system().lower()
 
-    # Wenn ja → PTY-ID abfragen
     while True:
-        port_id = input("Bitte PTY-ID eingeben (z.B. 4 oder 5): ").strip()
+        port_id = input("Bitte Port-ID eingeben (nur Zahl, z.B. 4 oder 5): ").strip()
 
         if not port_id.isdigit():
-            print("Ungültige Eingabe – bitte eine Zahl eingeben.")
+            print("Ungültige Eingabe – bitte eine reine Zahl eingeben.")
             continue
 
         port_id = int(port_id)
-        port_path = f"/dev/pts/{port_id}"
 
-        # Existiert der Port?
-        if not os.path.exists(port_path):
+        # Linux: /dev/pts/<ID>
+        if system == "linux":
+            port_path = f"/dev/pts/{port_id}"
+            if os.path.exists(port_path):
+                return port_path
             print(f"Port {port_path} existiert nicht. Bitte erneut versuchen.")
             continue
 
-        # Alles OK → zurückgeben
-        return port_path
+        # Windows: COM<ID>
+        if system == "windows":
+            port_path = f"COM{port_id}"
+            # Unter Windows kann man COM-Ports nicht mit os.path.exists prüfen
+            # Deshalb akzeptieren wir den Port einfach
+            return port_path
+
+        # Andere Systeme (macOS etc.)
+        print(f"Unbekanntes System '{system}'. Virtuelle Ports werden nicht unterstützt.")
+        return None
 
 
 def is_pty(port: str) -> bool:

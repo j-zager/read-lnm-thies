@@ -64,7 +64,7 @@ async def run_fsm():
                 if response:
                     fsm_state = State.RECEIVE_MESSAGE
                 else:
-                    print("Keine Antwort erhalten.")
+                    #print("Keine Antwort erhalten.")
                     fsm_state = State.IDLE
                 continue
 

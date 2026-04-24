@@ -1,9 +1,19 @@
 import serial
 import sys
 
+#Linux
 # python3 -m emulator.emulator /dev/pts/4
+#socat -d -d pty,raw,echo=0,mode=666 pty,raw,echo=0,mode=666
+
+
+#Windows
+# python3 -m emulator.emulator COM4 
+#  
 
 def run_emulator(port="/dev/pts/4"):
+    if port is None:
+        print(f"No virtual Port available - try to restart")
+        return
     par=serial.PARITY_NONE
     #parity=serial.PARITY_EVEN
     ser = serial.Serial(
@@ -72,7 +82,7 @@ def run_emulator(port="/dev/pts/4"):
             continue
 
 def emu():
-    port = sys.argv[1] if len(sys.argv) > 1 else "/dev/pts/6"
+    port = sys.argv[1] if len(sys.argv) > 1 else None#"/dev/pts/6"
     run_emulator(port)
     
 if __name__ == "__main__":
