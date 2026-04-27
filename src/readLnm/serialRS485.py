@@ -170,142 +170,6 @@ async def read_bytes(ser: serial.Serial, num: int, timeout: float = 1.0)->bytear
    
 
 
-async def read_bytes_endmarkerOld(
-    ser: serial.Serial,
-    num: int,
-    timeout: float = 1.0,
-    endmarker: bytes = b"\x0D\x0A\x03"
-) -> bytearray | None:
-
-    if ser is None or not ser.is_open:
-        logger.error("read_bytes: port is not opened")
-        return None
-
-    if num <= 0:
-        logger.error("read_bytes: num must be > 0")
-        raise ValueError("num must be > 0")
-
-    end_time = asyncio.get_event_loop().time() + timeout
-
-    buffer = bytearray()      # zum Finden des Endmarkers
-    result = bytearray()      # echte Nutzdaten nach dem Marker
-    collecting = False        # erst sammeln, wenn Marker gefunden wurde
-
-    try:
-        while True:
-            # Timeout prüfen
-            if asyncio.get_event_loop().time() > end_time:
-                logger.warning(f"Timeout while waiting for endmarker or {num} bytes")
-                return None
-
-            # Wenn keine Daten da → kurz warten
-            if ser.in_waiting == 0:
-                await asyncio.sleep(0.001)
-                continue
-
-            # Lesen (immer nur 1 Byte, um Marker sicher zu erkennen)
-            chunk = ser.read(1)
-            if not chunk:
-                continue
-
-            # logger.debug(f"RX 1 byte: {chunk.hex(' ')}")
-
-            # Noch nicht im Sammelmodus → nach Endmarker suchen
-            if not collecting:
-                buffer.extend(chunk)
-
-                # Endmarker erkannt?
-                if buffer.endswith(endmarker):
-                    logger.info("Endmarker erkannt – beginne Nutzdaten zu sammeln")
-                    collecting = True
-                    buffer.clear()  # alles davor verwerfen
-                continue
-
-            # Ab hier sammeln wir echte Nutzdaten
-            result.extend(chunk)
-
-            # Genug Bytes gesammelt?
-            if len(result) >= num:
-                # logger.info(f"Received full response ({len(result)} bytes)")
-                logger.debug(f"RX {len(result)} bytes: {result.hex(' ')}")
-                return result
-
-    except Exception as e:
-        logger.error(f"Receiving error:{e}")
-        return bytearray()
-
-
-# async def read_bytes_endmarker(
-#     ser: serial.Serial,
-#     num: int,
-#     timeout: float = 1.0,
-#     endmarker: bytes = b"\x0D\x0A\x03"
-# ) -> bytearray | None:
-
-#     if ser is None or not ser.is_open:
-#         logger.error("read_bytes: port is not opened")
-#         return None
-
-#     if num <= 0:
-#         logger.error("read_bytes: num must be > 0")
-#         raise ValueError("num must be > 0")
-
-#     end_time = asyncio.get_event_loop().time() + timeout
-
-#     buffer = bytearray()      # zum Finden des Endmarkers
-#     result = bytearray()      # echte Nutzdaten
-#     collecting = False        # erst sammeln, wenn Marker ODER Nutzdaten kommen
-
-#     try:
-#         while True:
-#             # Timeout
-#             if asyncio.get_event_loop().time() > end_time:
-#                 logger.warning("Timeout while reading")
-#                 return None
-
-#             if ser.in_waiting == 0:
-#                 await asyncio.sleep(0.001)
-#                 continue
-
-#             b = ser.read(1)
-#             if not b:
-#                 continue
-
-#             # logger.debug(f"RX 1 byte: {b.hex(' ')}")
-
-#             # Wenn wir noch nicht sammeln → prüfen ob Endmarker kommt
-#             if not collecting:
-#                 buffer.extend(b)
-
-#                 # Endmarker gefunden → Sammelmodus aktivieren
-#                 if buffer.endswith(endmarker):
-#                     logger.info("Endmarker erkannt – beginne Nutzdaten zu sammeln")
-#                     collecting = True
-#                     buffer.clear()
-#                     continue
-
-#                 # Wenn Daten kommen, die NICHT zum Endmarker gehören → sofort sammeln
-#                 if len(buffer) > len(endmarker):
-#                     logger.info("Keine zyklische Nachricht – beginne sofort zu sammeln")
-#                     collecting = True
-#                     result.extend(buffer)
-#                     buffer.clear()
-#                     continue
-
-#                 continue
-
-#             # Ab hier sammeln wir echte Nutzdaten
-#             result.extend(b)
-
-#             if len(result) >= num:
-#                 logger.debug(f"RX {len(result)} bytes: {result.hex(' ')}")
-#                 return result
-
-#     except Exception as e:
-#         logger.error(f"Receiving error: {e}")
-#         return None
-
-
 async def read_bytes_marker(
     ser: serial.Serial,
     num: int,
@@ -319,15 +183,13 @@ async def read_bytes_marker(
         return None
 
     if num <= 0:
-        logger.error("read_bytes: num must be > 0")
         raise ValueError("num must be > 0")
 
     end_time = asyncio.get_event_loop().time() + timeout
 
-    buffer = bytearray()      # zum Finden von STX/ETX
-    result = bytearray()      # echte Nutzdaten
-    in_cyclic = False         # sind wir gerade in einer zyklischen Nachricht?
-    collecting = False        # sammeln wir Nutzdaten?
+    result = bytearray()
+    in_cyclic = False
+    cyclic_buffer = bytearray()
 
     try:
         while True:
@@ -344,42 +206,146 @@ async def read_bytes_marker(
             if not b:
                 continue
 
-            # Noch nicht im Sammelmodus → prüfen auf STX/ETX
-            if not collecting:
-                buffer.extend(b)
-
-                # STX erkannt → wir sind in einer zyklischen Nachricht
-                if buffer.endswith(stx):
+            # -------------------------------
+            # 1) Zyklische Nachricht erkennen
+            # -------------------------------
+            if not in_cyclic:
+                # Start eines zyklischen Pakets?
+                if b == stx:
                     in_cyclic = True
-                    buffer.clear()
+                    cyclic_buffer.clear()
+                    cyclic_buffer.extend(b)
                     continue
 
-                # ETX erkannt → zyklische Nachricht zu Ende
-                if in_cyclic and buffer.endswith(etx):
+                # Normale Nutzdaten → sammeln
+                result.extend(b)
+
+                if len(result) >= num:
+                    logger.debug(f"RX {len(result)} bytes: {result.hex(' ')}")
+                    return result
+
+            else:
+                # Wir sind in einer zyklischen Nachricht
+                cyclic_buffer.extend(b)
+
+                # Ende erkannt?
+                if b == etx:
+                    # Zyklisches Paket komplett → verwerfen
                     in_cyclic = False
-                    buffer.clear()
+                    cyclic_buffer.clear()
                     continue
 
-                # Wenn wir NICHT in einer zyklischen Nachricht sind
-                # und Daten kommen → das ist die Antwort
-                if not in_cyclic and len(buffer) >= 1:
-                    collecting = True
-                    result.extend(buffer)
-                    buffer.clear()
+                # Falls zyklisches Paket extrem groß wird → Schutz
+                if len(cyclic_buffer) > 4096:
+                    logger.warning("Cyclic packet too large, discarding")
+                    in_cyclic = False
+                    cyclic_buffer.clear()
                     continue
-
-                continue
-
-            # Ab hier sammeln wir echte Nutzdaten
-            result.extend(b)
-
-            if len(result) >= num:
-                logger.debug(f"RX {len(result)} bytes: {result.hex(' ')}")
-                return result
 
     except Exception as e:
         logger.error(f"Receiving error: {e}")
         return None
+
+
+async def read_response(
+    ser: serial.Serial,
+    num: int,
+    marker: bytes | None = None,   # z.B. b"!wxyz"
+    timeout: float = 1.0,
+    stx: int = 0x02,
+    etx: int = 0x03,
+) -> bytearray | None:
+
+    if ser is None or not ser.is_open:
+        return None
+
+    end_time = asyncio.get_event_loop().time() + timeout
+
+    STATE_IDLE = 0
+    STATE_CYCLIC = 1
+    STATE_COLLECT = 2
+
+    state = STATE_IDLE
+    result = bytearray()
+    cyclic_buf = bytearray()
+
+    # ASCII‑Startzeichen
+    ascii_starts = b"+-0123456789"
+
+    try:
+        while True:
+
+            # Timeout
+            if asyncio.get_event_loop().time() > end_time:
+                return None
+
+            if ser.in_waiting == 0:
+                await asyncio.sleep(0.001)
+                continue
+
+            b = ser.read(1)
+            if not b:
+                continue
+
+            byte = b[0]
+
+            # ---------------------------------------------------------
+            # STATE: CYCLIC → verwerfen bis ETX
+            # ---------------------------------------------------------
+            if state == STATE_CYCLIC:
+                cyclic_buf.append(byte)
+
+                # Zyklusende
+                if byte == etx:
+                    state = STATE_IDLE
+                    cyclic_buf.clear()
+                # Schutz gegen endlose Pakete
+                elif len(cyclic_buf) > 4096:
+                    state = STATE_IDLE
+                    cyclic_buf.clear()
+
+                continue
+
+            # ---------------------------------------------------------
+            # STATE: IDLE → Startzeichen suchen
+            # ---------------------------------------------------------
+            if state == STATE_IDLE:
+
+                # Zyklisches Paket beginnt
+                if byte == stx:
+                    state = STATE_CYCLIC
+                    cyclic_buf.clear()
+                    continue
+
+                # Marker‑Antwort beginnt
+                if byte == ord("!"):
+                    result = bytearray(b"!")
+                    state = STATE_COLLECT
+                    continue
+
+                # ASCII‑Antwort beginnt
+                if byte in ascii_starts:
+                    result = bytearray(b)
+                    state = STATE_COLLECT
+                    continue
+
+                # Müll → ignorieren
+                continue
+
+            # ---------------------------------------------------------
+            # STATE: COLLECT → Antwort sammeln
+            # ---------------------------------------------------------
+            if state == STATE_COLLECT:
+                result.extend(b)
+
+                if len(result) >= num:
+                    return result
+
+                continue
+
+    except Exception:
+        return None
+
 
 
 

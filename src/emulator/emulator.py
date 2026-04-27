@@ -10,7 +10,8 @@ import sys
 # python3 -m emulator.emulator COM4 
 #  
 
-def run_emulator(port="/dev/pts/4"):
+#def run_emulator(port="/dev/pts/4"):
+def run_emulator(port="/dev/pts/7"):
     if port is None:
         print(f"No virtual Port available - try to restart")
         return
@@ -25,7 +26,7 @@ def run_emulator(port="/dev/pts/4"):
         timeout=1
     )
 
-    print(f"Sensor-Emulator läuft auf {port} (9600 8E1)")
+    print(f"Sensor-Emulator läuft auf {port} (9600 8N1)")
 
     buffer = ""
 
@@ -57,7 +58,7 @@ def run_emulator(port="/dev/pts/4"):
         dev_id = data[0:2]
 
         # CMD = 2 Zeichen
-        cmd = data[2:4]
+        cmd = data[2:4].upper()
 
         # SET-Befehl? (ID + CMD + PARAM + CR → 10 Zeichen)
         # data enthält KEIN \r mehr, daher:
@@ -72,7 +73,23 @@ def run_emulator(port="/dev/pts/4"):
 
         elif len(data) == 4:
             # READ-Befehl → Antwort senden
-            response = f"{dev_id}{cmd}12345\r".encode()
+
+            if cmd == "ZT":
+                print("special case: ZT")
+                response = f"25.01.05;15:58:10".encode()
+            elif cmd == "DA":
+                print("special case: DA")
+                response = f"-01.6;040.3;02.6;090".encode()
+            elif cmd == "DD":
+                print("special case: DD")
+                response = f"+01;08;1627;4011;2356;235;084;070;-06.4;233;0034;0845;2230".encode()
+            elif cmd == "DX":
+                print("special case: DX")
+                response = f"1;0;0;0;0;0;0;0;0;0;0;0;0;0;1;0".encode()
+            else:
+                print("normal case")
+                response = f"!{dev_id}{cmd}12345".encode()
+
             ser.write(response)
             print("Antwort gesendet:", repr(response))
 

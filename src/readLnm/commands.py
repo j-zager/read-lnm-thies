@@ -204,3 +204,29 @@ def get_rx_len_from_msg(msg: bytes) -> int:
         return 0  # unbekannter Command
 
     return entry.get("rx_len", 0)
+
+def createMsgMarker(msg: bytes, prefix:str|None ="") -> bytes:
+    """
+    Extrahiert den Nachrichtenmarker aus einem Telegramm wie b"00SV\r"
+    und gibt den Marker mit vorangestellten prefix zurück zurück.
+    """
+    specialCases = {b"ZT", b"DA", b"DD", b"DX"}
+    try:
+        
+        nonmarker = msg [2:4]
+
+        if nonmarker in specialCases:
+            return None
+        
+        marker = msg[0:4]
+        if prefix:
+            return prefix.encode("ascii") + marker
+        return marker
+    except Exception:
+        return None  # ungültiges Telegramm
+
+
+
+
+
+

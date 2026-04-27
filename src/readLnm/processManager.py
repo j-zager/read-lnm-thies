@@ -1,8 +1,9 @@
 import serial
 from readLnm.serialRS485 import open_port,send_bytes,read_bytes,read_bytes_marker,close_all_ports,choose_serial_port, flush_serial
-from readLnm.commands import get_rx_len_from_msg
+from readLnm.commands import get_rx_len_from_msg, createMsgMarker
 from generic_utils.io.loggerConfig import getSerialLogger 
 from readLnm.handleVirtualPorts import init_virtual_port_selection
+from readLnm.serialLNM import read_bytes_cases
 
 
 logger = getSerialLogger()
@@ -54,13 +55,14 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
 
     # 3. Antwort empfangen (z. B. 10 ASCII-Zeichen)
     rxChexpected = get_rx_len_from_msg(msg)
+    logger.info(f"excpected bytes from {msg}:{rxChexpected}")
+    
     response = None
     if expects_response:
-        # response = await read_bytes(ser=ser, num = 10, timeout = 1.0)
-        # response = await read_bytes(ser=ser, num = rxChexpected, timeout = 1.0)
-        # remove message ending with CR LF ETX - b"\x0D\x0A\x03"
-        response = await read_bytes_endmarker(ser=ser, num = rxChexpected, timeout = 1.0,endmarker=b"\x0D\x0A\x03")
-
+        resmarker = createMsgMarker(msg =msg, prefix="!")
+        logger.info(f"responsemarker:{resmarker}")
+        #response = await read_bytes_marker(ser=ser, num = rxChexpected, timeout = 1.0,stx=b"\x02",etx=b"\x03")
+        response = await read_bytes_cases(ser=ser, num = rxChexpected, marker=resmarker, timeout = 1.0,stx=b"\x02",etx=b"\x03")
         if response:
             logger.info(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}")
         else:
