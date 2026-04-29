@@ -1,4 +1,5 @@
 import serial
+import asyncio
 from readLnm.serialRS485 import open_port,send_bytes,read_bytes,read_bytes_marker,close_all_ports,choose_serial_port, flush_serial
 from readLnm.commands import get_rx_len_from_msg, createMsgMarker
 from generic_utils.io.loggerConfig import getSerialLogger 
@@ -42,6 +43,9 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
         return
     
     flush_serial(ser=ser)
+    # await asyncio.sleep(0.01)
+    # while ser.in_waiting:
+    #     ser.read(ser.in_waiting)
 
     # 2. Nachricht senden
     ok = await send_bytes(ser=ser, data=bytearray(msg))
@@ -56,12 +60,11 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
     # 3. Antwort empfangen (z. B. 10 ASCII-Zeichen)
     rxChexpected = get_rx_len_from_msg(msg)
     logger.info(f"excpected bytes from {msg}:{rxChexpected}")
-    
+
     response = None
     if expects_response:
         resmarker = createMsgMarker(msg =msg, prefix="!")
         logger.info(f"responsemarker:{resmarker}")
-        #response = await read_bytes_marker(ser=ser, num = rxChexpected, timeout = 1.0,stx=b"\x02",etx=b"\x03")
         response = await read_bytes_cases(ser=ser, num = rxChexpected, marker=resmarker, timeout = 1.0,stx=b"\x02",etx=b"\x03")
         if response:
             logger.info(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}")

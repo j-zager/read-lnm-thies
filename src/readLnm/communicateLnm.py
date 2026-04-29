@@ -3,9 +3,14 @@ from generic_utils.io.loggerConfig import getLogger
 from readLnm.commands import cli_menu #COMMANDS, input_device_id, input_command, input_value, build_message
 from readLnm.processManager import do_single_message
 from readLnm.processManager import portSelection
+from generic_utils.io.loggerConfig import setDefaultLoggerLevel
+import logging
+
+
 
 
 logger = getLogger("ThiesLNM comm log")
+
 
 from enum import Enum, auto
 
@@ -133,6 +138,7 @@ def confirm_message(msg: bytes) -> str:
 
 def communicate():
     logger.info("startLNM com")
+    setDefaultLoggerLevel(logging.DEBUG)
     asyncio.run(run_fsm())
 
 if __name__ == "__main__":

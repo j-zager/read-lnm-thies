@@ -3,9 +3,10 @@ from enum import Enum, auto
 import asyncio
 import serial
 
-from generic_utils.io.loggerConfig import getSerialLogger 
+from generic_utils.io.loggerConfig import getSerialLogger
 
 logger = getSerialLogger()
+
 
 
 # ---------------------------------------------------------
@@ -164,17 +165,20 @@ async def read_bytes_cases(
     num: int,
     marker: bytes | None,   # z.B. b"!AB12"
     timeout: float = 1.0,
-    stx: int = 0x02,
-    etx: int = 0x03,
+    stx: bytes = b"\x02",
+    etx: bytes = b"\x03",
 ) -> bytearray | None:
+    
 
     ps = ParserState()
+    ps.state = RxState.IDLE
     result = bytearray()
 
     ASCII_ALLOWED = b"0123456789+-.:;"
 
     end_time = asyncio.get_event_loop().time() + timeout
-
+    logger.info("print all received bytes/n")
+    
     while True:
 
         # Timeout
@@ -189,7 +193,12 @@ async def read_bytes_cases(
         if not b:
             continue
 
-        byte = b[0]
+    
+
+     
+        #print(f"{repr(byte)} ", end="")
+        print(f"0x{b[0]:02X} ", end="")
+
 
         match ps.state:
 
@@ -197,21 +206,27 @@ async def read_bytes_cases(
             # IDLE → Warten auf Start
             # ---------------------------------------------------
             case RxState.IDLE:
+                #logger.info("RxState.IDLE")
 
                 # Zyklisches Paket beginnt
-                if byte == stx:
+                if b == stx:
                     ps.state = RxState.CYCLIC
                     ps.buffer.clear()
+                    ps.buffer.append(b[0])
+                    logger.info(f"start cyclic data detected ")
+                    print(f"start cyclic data detected ")
                     continue
 
                 # Marker‑Antwort beginnt
-                if marker and byte == marker[0]:
+                if marker and b == marker[0]:
                     result = bytearray(b)
                     ps.state = RxState.COLLECT
+                    logger.info(f"start cyclic data detected ")
                     continue
 
                 # ASCII‑Antwort beginnt
-                if byte in ASCII_ALLOWED:
+                if b in ASCII_ALLOWED:
+                    logger.info(f"ascii response starts")
                     result = bytearray(b)
                     ps.state = RxState.COLLECT
                     continue
@@ -223,17 +238,19 @@ async def read_bytes_cases(
             # CYCLIC → Zyklisches Paket verwerfen
             # ---------------------------------------------------
             case RxState.CYCLIC:
+                #logger.info("RxState.Cyclic")
 
-                if byte == etx:
+                if b == etx:
                     ps.state = RxState.IDLE
                     ps.buffer.clear()
-                    logger.debug(f"Discard cyclic data")
+                    logger.info(f"Discard cyclic data")
                     continue
 
-                ps.buffer.append(byte)
+                ps.buffer.append(b[0])
 
                 # Schutz gegen endlose Pakete
                 if len(ps.buffer) > 4096:
+                    logger.info(f"Discard cyclic to big buffer  data")
                     ps.state = RxState.IDLE
                     ps.buffer.clear()
 
@@ -243,32 +260,34 @@ async def read_bytes_cases(
             # COLLECT → Antwort sammeln
             # ---------------------------------------------------
             case RxState.COLLECT:
-
+                #logger.info("RxState.COLLECT")
                 result.extend(b)
 
                 # Marker‑Antwort → Länge erreicht?
                 if marker and result.startswith(marker):
+                    logger.info("marker startswith ok")
                     if len(result) >= num:
                         logger.debug(f"Marker:RX {len(result)} bytes: {result.hex(' ')}")
                         return result
 
                 # ASCII‑Antwort → Struktur prüfen
                 if all(c in ASCII_ALLOWED for c in result):
+                #if ser.in_waiting==0 and all(c in ASCII_ALLOWED for c in result):
 
                     if is_ZT(result):
-                        logger.debug(f"ZT: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.info(f"ZT: RX {len(result)} bytes: {result.hex(' ')}")
                         return result
 
                     if is_DA(result):
-                        logger.debug(f"DA: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.info(f"DA: RX {len(result)} bytes: {result.hex(' ')}")
                         return result
 
                     if is_DD(result):
-                        logger.debug(f"DD: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.info(f"DD: RX {len(result)} bytes: {result.hex(' ')}")
                         return result
 
                     if is_DX(result):
-                        logger.debug(f"DX: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.info(f"DX: RX {len(result)} bytes: {result.hex(' ')}")
                         return result
 
                 # Wenn zu lang → ungültig
