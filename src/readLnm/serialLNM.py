@@ -4,6 +4,7 @@ import asyncio
 import serial
 
 from generic_utils.io.loggerConfig import getSerialLogger
+from readLnm.specialLnmCommands import parse_DA,parse_DX,parse_DD,parse_ZT
 
 logger = getSerialLogger()
 
@@ -195,12 +196,8 @@ async def read_bytes_cases(
         if not b:
             continue
 
-    
-
-     
-        #print(f"{repr(byte)} ", end="")
         print(f"0x{b[0]:02X} ", end="")
-        #print(f"0x{b[0]:02X} ", end ="", flush=True)
+        #print(f"0x{b[0]:02X} ")
 
 
         match ps.state:
@@ -220,7 +217,7 @@ async def read_bytes_cases(
                     continue
 
                 # Marker‑Antwort beginnt
-                if marker and b == marker[0]:
+                if marker and b[0] == marker[0]:
                     result = bytearray(b)
                     ps.state = RxState.COLLECT
                     logger.info(f"Start of marker response detected ")
@@ -266,9 +263,16 @@ async def read_bytes_cases(
                 #logger.info("RxState.COLLECT")
                 result.extend(b)
 
+                if b == etx:
+                    ps.state = RxState.IDLE
+                    result.clear()
+                    logger.info(f"ETX:Discard collect data in case started without stx byte")
+                    print(" #-#-#-# ",end="")
+                    continue
+
                 # Marker‑Antwort → Länge erreicht?
                 if marker and result.startswith(marker):
-                    logger.info("marker startswith ok")
+                    logger.info("marker startswith -> ok")
                     if len(result) >= num:
                         logger.debug(f"Marker:RX {len(result)} bytes: {result.hex(' ')}")
                         return result
@@ -277,21 +281,50 @@ async def read_bytes_cases(
                 if all(c in ASCII_ALLOWED for c in result):
                 #if ser.in_waiting==0 and all(c in ASCII_ALLOWED for c in result):
 
+                    # if is_ZT(result):
+                    #     logger.info(f"ZT: RX {len(result)} bytes: {result.hex(' ')}")
+                    #     return result
+
+                    # if is_DA(result):
+                    #     logger.info(f"DA: RX {len(result)} bytes: {result.hex(' ')}")
+                    #     return result
+
+                    # if is_DD(result):
+                    #     logger.info(f"DD: RX {len(result)} bytes: {result.hex(' ')}")
+                    #     return result
+
+                    # if is_DX(result):
+                    #     logger.info(f"DX: RX {len(result)} bytes: {result.hex(' ')}")
+                    #     return result
+
                     if is_ZT(result):
+                        text = result.decode("ascii", errors="ignore")
+                        data = parse_ZT(text)
                         logger.info(f"ZT: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.info("\n" + data.pretty())
                         return result
 
                     if is_DA(result):
+                        text = result.decode("ascii", errors="ignore")
+                        data = parse_DA(text)
                         logger.info(f"DA: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.info("\n" + data.pretty())
                         return result
 
                     if is_DD(result):
+                        text = result.decode("ascii", errors="ignore")
+                        data = parse_DD(text)
                         logger.info(f"DD: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.info("\n" + data.pretty())
                         return result
 
                     if is_DX(result):
+                        text = result.decode("ascii", errors="ignore")
+                        data = parse_DX(text)
                         logger.info(f"DX: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.info("\n" + data.pretty())
                         return result
+
 
                 # Wenn zu lang → ungültig
                 if len(result) > 256:

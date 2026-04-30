@@ -5,7 +5,6 @@ from readLnm.commands import get_rx_len_from_msg, createMsgMarker
 from generic_utils.io.loggerConfig import getSerialLogger 
 from readLnm.handleVirtualPorts import init_virtual_port_selection
 from readLnm.serialLNM import read_bytes_cases
-import sys
 
 logger = getSerialLogger()
 
@@ -59,18 +58,18 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
     logger.info(f"TX → {bytearray(msg).hex(' ')}  ASCII: {bytearray(msg).decode(errors='ignore')}")
 
     # 3. Antwort empfangen (z. B. 10 ASCII-Zeichen)
-    rxChexpected = get_rx_len_from_msg(msg)
-    logger.info(f"excpected bytes from {msg}:{rxChexpected}")
+
 
     response = None
     if expects_response:
+        rxChexpected = get_rx_len_from_msg(msg)
+        logger.info(f"excpected bytes from {msg}:{rxChexpected}")
         resmarker = createMsgMarker(msg =msg, prefix="!")
         logger.info(f"responsemarker:{resmarker}")
         response = await read_bytes_cases(ser=ser, num = rxChexpected, marker=resmarker, timeout = 1.0,stx=b"\x02",etx=b"\x03")
-        print("End all data <<<<<<<<<<")
-        #sys.stdout.flush()
+        print("End <<<<<<<<<<")
         if response:
-            logger.info(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}/n")
+            logger.info(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}")
         else:
             logger.warning("Timeout or no responsive (response was expected!)")
     else:

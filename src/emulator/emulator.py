@@ -111,44 +111,18 @@ def run_emulator(port="/dev/pts/7"):
             print("Ungültige Telegrammlänge → keine Antwort")
             continue
 
-# def generate_random_traffic() -> bytes | None:
-#     # 50% Chance: None zurückgeben
-#     if random.random() < 0.5:
-#         return None
-
-#     # Länge zwischen 15 und 17
-#     length = random.randint(15, 17)
-
-#     # 50% Chance: STX am Anfang
-#     use_stx = random.random() < 0.5
-
-#     payload_length = length - 1  # ETX kommt immer am Ende
-
-#     if use_stx:
-#         payload_length -= 1  # STX belegt ein Byte
-
-#     # Zufällige Bytes erzeugen
-#     payload = os.urandom(payload_length)
-
-#     # Nachricht zusammensetzen
-#     if use_stx:
-#         msg = b"\x02" + payload + b"\x03"
-#     else:
-#         msg = payload + b"\x03"
-
-#     return msg
 
 
 def generate_random_traffic_exclusive() -> bytes | None:
     # 50% Chance: None zurückgeben
-    if random.random() < 0.01:
+    if random.random() < 0.50:
         return None
 
     # Länge zwischen 15 und 17
     total_len = random.randint(15, 17)
 
     # 50% Chance: STX am Anfang
-    use_stx = random.random() < 0.99
+    use_stx = random.random() < 0.50
 
     # Verbotene Zeichen
     forbidden = {0x02, 0x03, 0x21}  # STX, ETX, '!'
