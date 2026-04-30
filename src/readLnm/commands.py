@@ -158,9 +158,11 @@ def cli_menu():
     print("================================")
 
     mode = input("Modus wählen (1/2): ").strip()
-    while mode not in ("1", "2"):
+    while mode not in ("1", "2",""):
         mode = input("❌ Ungültig! Modus wählen (1/2): ").strip()
 
+    if mode == "":
+        mode ="1"
     dev_id = input_device_id()
 
     print("\nVerfügbare Befehle:")

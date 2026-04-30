@@ -15,7 +15,7 @@ def init_virtual_port_selection() -> str | None:
     while True:
         use_virtual = input("Virtuellen Port verwenden? (j/n): ").strip().lower()
 
-        if use_virtual in ("j", "n"):
+        if use_virtual in ("j", "n",""):
             break
         print("Bitte 'j' oder 'n' eingeben.")
 

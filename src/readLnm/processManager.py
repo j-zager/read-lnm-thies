@@ -5,7 +5,7 @@ from readLnm.commands import get_rx_len_from_msg, createMsgMarker
 from generic_utils.io.loggerConfig import getSerialLogger 
 from readLnm.handleVirtualPorts import init_virtual_port_selection
 from readLnm.serialLNM import read_bytes_cases
-
+import sys
 
 logger = getSerialLogger()
 
@@ -18,7 +18,8 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
 
     # Real hardware → use EVEN parity
     else:
-        logger.info("Detected real serial device → using PARITY_EVEN")
+        #logger.info("Detected real serial device → using PARITY_EVEN")
+        logger.info("Detected real serial device → using PARITY_NONE in old device")
         #par = serial.PARITY_EVEN
         par = serial.PARITY_NONE
         logger.warning("Detected real serial device → using PARITY_NONE because of old device configuration")
@@ -66,8 +67,10 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
         resmarker = createMsgMarker(msg =msg, prefix="!")
         logger.info(f"responsemarker:{resmarker}")
         response = await read_bytes_cases(ser=ser, num = rxChexpected, marker=resmarker, timeout = 1.0,stx=b"\x02",etx=b"\x03")
+        print("End all data <<<<<<<<<<")
+        #sys.stdout.flush()
         if response:
-            logger.info(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}")
+            logger.info(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}/n")
         else:
             logger.warning("Timeout or no responsive (response was expected!)")
     else:
@@ -75,6 +78,8 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
 
     # 4. Port schließen
     close_all_ports({port:ser})
+
+    return response
 
 
 def portSelection()->str:

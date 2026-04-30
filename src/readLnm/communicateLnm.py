@@ -35,15 +35,7 @@ async def run_fsm():
             # -------------------------
             case State.INIT:
                 print("STATE: INIT")
-                # virtualPort = init_virtual_port_selection()
-                # if virtualPort is None:
-                #     port = choose_serial_port()
-                # else:
-                #     #port = "/dev/pts/4" 
-                #     port = virtualPort
-                # logger.info(f"used Port{port}")
                 port =portSelection()
-
                 fsm_state = State.REQUEST_MESSAGE
                 continue
 
@@ -70,6 +62,7 @@ async def run_fsm():
                 print("STATE: SEND_MESSAGE")
                 response = await do_single_message(msg,port)
                 fsm_state = State.CHECK_MESSAGE
+                print("")
                 continue
 
             # -------------------------
@@ -93,7 +86,7 @@ async def run_fsm():
             case State.IDLE:
                 print("STATE: IDLE")
                 again = input("Neue Nachricht senden? (J/N): ").strip().lower()
-                if again == "j":
+                if again == "j" or again == "":
                     msg = None
                     response = None
                     fsm_state = State.REQUEST_MESSAGE
@@ -125,7 +118,7 @@ def confirm_message(msg: bytes) -> str:
     while True:
         choice = input("\nSenden (J), neu eingeben (N), beenden (Q): ").strip().lower()
 
-        if choice == "j":
+        if choice == "j" or choice =="":
             return "send"
         elif choice == "n":
             return "retry"

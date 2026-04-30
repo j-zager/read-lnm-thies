@@ -178,6 +178,8 @@ async def read_bytes_cases(
 
     end_time = asyncio.get_event_loop().time() + timeout
     logger.info("print all received bytes/n")
+
+    print(f">>>>>>>>>> Start:", end="")
     
     while True:
 
@@ -198,6 +200,7 @@ async def read_bytes_cases(
      
         #print(f"{repr(byte)} ", end="")
         print(f"0x{b[0]:02X} ", end="")
+        #print(f"0x{b[0]:02X} ", end ="", flush=True)
 
 
         match ps.state:
@@ -213,15 +216,14 @@ async def read_bytes_cases(
                     ps.state = RxState.CYCLIC
                     ps.buffer.clear()
                     ps.buffer.append(b[0])
-                    logger.info(f"start cyclic data detected ")
-                    print(f"start cyclic data detected ")
+                    logger.info(f"STX: start cyclic data detected ")
                     continue
 
                 # Marker‑Antwort beginnt
                 if marker and b == marker[0]:
                     result = bytearray(b)
                     ps.state = RxState.COLLECT
-                    logger.info(f"start cyclic data detected ")
+                    logger.info(f"Start of marker response detected ")
                     continue
 
                 # ASCII‑Antwort beginnt
@@ -243,7 +245,8 @@ async def read_bytes_cases(
                 if b == etx:
                     ps.state = RxState.IDLE
                     ps.buffer.clear()
-                    logger.info(f"Discard cyclic data")
+                    logger.info(f"ETX:Discard cyclic data")
+                    print(" ####### ",end="")
                     continue
 
                 ps.buffer.append(b[0])
