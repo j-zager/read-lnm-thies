@@ -107,12 +107,20 @@ def is_set_command(msg: bytes) -> bool:
     raise ValueError(f"Ungültige Telegrammlänge: {length}")
 
 
-def input_command()-> str:
+def input_command(cmd: str|None)-> str:
     while True:
-        cmd = input("Befehl eingeben: ").strip().upper()
-        if cmd in COMMANDS:
+        cmdIn = input("Befehl eingeben: ").strip().upper()
+        if cmdIn in COMMANDS:
+            return cmdIn
+        elif cmdIn == "" and cmd is not None:
+            print(f"✔ Alten Befehl wieder verwenden:{cmd}")
             return cmd
-        print("❌ Ungültiger Befehl! Bitte erneut eingeben.")
+        elif cmdIn == "" and cmd is None:
+            print("❌ Kein vorheriger Befehl vorhanden! Bitte erneut eingeben.")
+        else:
+            print("❌ Ungültiger Befehl! Bitte erneut eingeben.")
+
+        
 
 def input_device_id()-> int:
     while True:
@@ -150,8 +158,9 @@ def build_message(command: str, device_id: int = 0, value: int | None = None) ->
 
     return msg.encode("ascii")
 
-
+cmd = None
 def cli_menu():
+    global cmd
     print("=== LNM Thies RS232 CLI Menü ===")
     print("1) Lesen")
     print("2) Setzen")
@@ -166,11 +175,11 @@ def cli_menu():
     dev_id = input_device_id()
 
     print("\nVerfügbare Befehle:")
-    for cmd, info in COMMANDS.items():
-        print(f" {cmd} = {info['desc']}")
+    for cmdItem, info in COMMANDS.items():
+        print(f" {cmdItem} = {info['desc']}")
     print()
 
-    cmd = input_command()
+    cmd = input_command(cmd)
 
     # Prüfen, ob der Befehl Setzen erlaubt
     if mode == "2":
