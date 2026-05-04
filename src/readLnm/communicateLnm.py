@@ -1,6 +1,6 @@
 import asyncio
 from generic_utils.io.loggerConfig import getLogger
-from readLnm.commands import cli_menu #COMMANDS, input_device_id, input_command, input_value, build_message
+from readLnm.commands import cli_menu 
 from readLnm.processManager import do_single_message
 from readLnm.processManager import portSelection
 from generic_utils.io.loggerConfig import setDefaultLoggerLevel
