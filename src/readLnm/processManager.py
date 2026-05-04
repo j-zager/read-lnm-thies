@@ -48,7 +48,9 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
     #     ser.read(ser.in_waiting)
 
     # 2. Nachricht senden
-    ok = await send_bytes(ser=ser, data=bytearray(msg))
+    msg_to_send = bytearray(b"\x0D") + bytes(msg)
+    ok = await send_bytes(ser=ser, data=msg_to_send)
+    #ok = await send_bytes(ser=ser, data=bytearray(msg))
 
     if not ok:
         logger.error("Sending was not successfull")

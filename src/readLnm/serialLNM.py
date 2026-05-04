@@ -72,20 +72,23 @@ def is_DA(msg: bytes) -> bool:
         if s.count(";") != 3:
             return False
 
-        if s.count(".") != 3:
-            return False
+        # if s.count(".") != 3:
+        #     return False
 
         parts = s.split(";")
         if len(parts) < 2:
             return False
-
-        # alle außer letztem müssen Punkt haben
-        if not all("." in p for p in parts[:-1]):
+        
+        if not (s[5] == ";" and s[11] == ";" and s[16] == ";"):
             return False
 
-        # letztes Feld darf keinen Punkt haben
-        if "." in parts[-1]:
-            return False
+        # # alle außer letztem müssen Punkt haben
+        # if not all("." in p for p in parts[:-1]):
+        #     return False
+
+        # # letztes Feld darf keinen Punkt haben
+        # if "." in parts[-1]:
+        #     return False
 
         return True
     except:
@@ -175,6 +178,11 @@ async def read_bytes_cases(
     ps.state = RxState.IDLE
     result = bytearray()
 
+    wrg_cmd_marker = None
+    # Fehler-Marker erzeugen: "!00CI"
+    if marker is not None and len(marker)>=5:
+        wrg_cmd_marker = marker[0:3] + b"CI"
+
     ASCII_ALLOWED = b"0123456789+-.:;"
 
     end_time = asyncio.get_event_loop().time() + timeout
@@ -263,6 +271,9 @@ async def read_bytes_cases(
                 #logger.info("RxState.COLLECT")
                 result.extend(b)
 
+                if b[0] == 0x0D:
+                    logger.info("[DEBUG] generic EndmarkerMessage 0x0D detected ")
+
                 if b == etx:
                     ps.state = RxState.IDLE
                     result.clear()
@@ -276,26 +287,25 @@ async def read_bytes_cases(
                     if len(result) >= num:
                         logger.debug(f"Marker:RX {len(result)} bytes: {result.hex(' ')}")
                         return result
+                    
+                # Fehlerantwort → beginnt mit "!00CI"
+                if wrg_cmd_marker and result.startswith(wrg_cmd_marker):
+                    logger.info("wrg_cmd_marker startswith -> ok")
+                    if len(result) >= num:
+                        err = result[9]  # ASCII '2','4','8'
+                        if err == 0x32:
+                            logger.info("Err:2: Unknown Command")
+                        elif err == 0x34:
+                            logger.info("Err:4: Parameter out of allowed range")
+                        elif err == 0x38:
+                            logger.info("Err:8: Invalid Command in this mode(Check KY)")
+                        else:
+                            logger.info(f"Unknown Error:{err}")
+                        return result
 
                 # ASCII‑Antwort → Struktur prüfen
                 if all(c in ASCII_ALLOWED for c in result):
                 #if ser.in_waiting==0 and all(c in ASCII_ALLOWED for c in result):
-
-                    # if is_ZT(result):
-                    #     logger.info(f"ZT: RX {len(result)} bytes: {result.hex(' ')}")
-                    #     return result
-
-                    # if is_DA(result):
-                    #     logger.info(f"DA: RX {len(result)} bytes: {result.hex(' ')}")
-                    #     return result
-
-                    # if is_DD(result):
-                    #     logger.info(f"DD: RX {len(result)} bytes: {result.hex(' ')}")
-                    #     return result
-
-                    # if is_DX(result):
-                    #     logger.info(f"DX: RX {len(result)} bytes: {result.hex(' ')}")
-                    #     return result
 
                     if is_ZT(result):
                         text = result.decode("ascii", errors="ignore")

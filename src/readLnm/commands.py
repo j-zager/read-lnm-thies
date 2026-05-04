@@ -53,7 +53,7 @@ COMMANDS = {
     "SV": {"desc": "Software Version",                 "set": False, "rx_len": 10},
     "SB": {"desc": "Bootloader Version",               "set": False, "rx_len": 10},
     "SN": {"desc": "Serial Number",                    "set": False, "rx_len": 10},
-    "TM": {"desc": "Telegram Mode (3..10)",            "set": True,  "range": (3, 10), "rx_len": 10},
+    "TM": {"desc": "Telegram Mode (0..10)",            "set": True,  "range": (0, 10), "rx_len": 10},
     "TR": {"desc": "Request Telegram (4..7)",          "set": True,  "range": (4, 7), "rx_len": 10},
     "TO": {"desc": "Time interval telegram 10 (1..10)","set": True, "range": (1, 10), "rx_len": 10},
     "ZH": {"desc": "Set Hour (0..23)",                 "set": True,  "range": (0, 23), "rx_len": 10},
