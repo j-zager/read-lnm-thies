@@ -1,7 +1,8 @@
-# LNM Thies RS232 Communication Tool
+# LNM Thies RS485 Communication Tool
 
-This project provides a command‑line interface (CLI) and communication framework for interacting with Thies LNM sensors over RS232.
-It supports building valid telegrams, reading and writing device parameters, and handling communication through an internal finite state machine (FSM).
+This project provides a command‑line interface (CLI) and communication framework for interacting with Thies LNM sensors over RS485.
+It supports building valid telegrams, reading and writing device parameters, and handling communication through an internal finite state machine (FSM). 
+The tool can handle regulary traffic messages and can handle specific data formats like ZT.
 
 The tool can be executed in three different ways:
 
@@ -17,7 +18,7 @@ The tool can be executed in three different ways:
 
     Automatic validation of commands and parameter ranges
 
-    Asynchronous RS232 communication
+    Asynchronous RS485 communication
 
     Finite state machine (FSM) for structured communication flow
 
@@ -134,10 +135,12 @@ EXIT	Clean shutdown of ports and resources
 
 All supported commands are defined in a structured dictionary:
 
+
 COMMANDS = {
-    "SV": {"desc": "Software Version", "set": False},
-    "BR": {"desc": "Baudrate", "set": True, "range": (0, 99999)},
-    ...
+    "KY": {"desc": "Command mode (0=user, 1=config)",  "set": True,  "range": (0, 1), "rx_len": 10},
+    "BR": {"desc": "Baudrate (5 = 9600Bd 8N1)",        "set": True,  "range": (0, 99999), "rx_len": 10},
+
+        ...
 }
 
 This enables:
@@ -148,14 +151,3 @@ This enables:
 
     parameter range checking
 
-## 🛠 Development
-
-The project is modular and easy to extend:
-
-    Add new commands to the dictionary
-
-    Extend the FSM with new states
-
-    Add additional communication modules
-
-    Integrate logging or debugging tools
