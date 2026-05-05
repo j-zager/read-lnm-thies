@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "readLNM"
-version = "0.1.2"
+version = "0.1.3"
 description = "basic programm to communicate with Thies LNM"
 readme = "README.md"
 requires-python = ">=3.13"

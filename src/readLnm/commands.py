@@ -87,8 +87,8 @@ COMMANDS = {
     "AY": {"desc": "Abgleich 127 Ohm Referenz",        "set": False, "rx_len": 10},
     "AZ": {"desc": "Zeitkalibration",                  "set": False, "rx_len": 10},
     "OR": {"desc": "Ausgaberate",                      "set": False, "rx_len": 10},
-    "TC": {"desc": "Interner Trigger",                 "set": False, "rx_len": 10},
-    "TV": {"desc": "Interner Triggerwert",             "set": False, "rx_len": 10},
+    "TC": {"desc": "Interner Trigger",                 "set": True, "range": (0, 100),"rx_len": 10},
+    "TV": {"desc": "Interner Triggerwert",             "set": True, "range": (0, 100),"rx_len": 10},
 }
 
 

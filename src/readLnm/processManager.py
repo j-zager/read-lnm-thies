@@ -43,9 +43,6 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
         return
     
     flush_serial(ser=ser)
-    # await asyncio.sleep(0.01)
-    # while ser.in_waiting:
-    #     ser.read(ser.in_waiting)
 
     # 2. Nachricht senden
     msg_to_send = bytearray(b"\x0D") + bytes(msg)
@@ -60,8 +57,6 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
     logger.info(f"TX → {bytearray(msg).hex(' ')}  ASCII: {bytearray(msg).decode(errors='ignore')}")
 
     # 3. Antwort empfangen (z. B. 10 ASCII-Zeichen)
-
-
     response = None
     if expects_response:
         rxChexpected = get_rx_len_from_msg(msg)

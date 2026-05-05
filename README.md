@@ -1,12 +1,12 @@
 # LNM Thies RS485 Communication Tool
 
-This project provides a command‑line interface (CLI) and communication framework for interacting with Thies LNM sensors over RS485.
+This project provides a command‑line interface (CLI) and communication framework for interacting with Thies LNM Disdrometer sensors over RS485.
 It supports building valid telegrams, reading and writing device parameters, and handling communication through an internal finite state machine (FSM). 
 The tool can handle regulary traffic messages and can handle specific data formats like ZT.
 
 The tool can be executed in three different ways:
 
-    via the installed script entry point
+    via the installed script entry point comLnmThies
 
     via python -m readLnm
 
@@ -68,33 +68,17 @@ python -m readLnm.communicateLnm
 
 The CLI guides the user through:
 
-    Selecting mode
+    Selecting mode: Read/Write
 
-        Read
+    Entering device ID: Automatically formatted to 2 digits (00–99)
 
-        Write
+    Selecting a command: All commands are listed dynamically from the internal command dictionary
 
-    Entering device ID
+    Entering a parameter value (if required): Automatic validation and range checking based on command definition
 
-        Automatically formatted to 2 digits (00–99)
+    Confirming the telegram: Send/ Re-enter/ Quit
 
-    Selecting a command
-
-        All commands are listed dynamically from the internal command dictionary
-
-    Entering a parameter value (if required)
-
-        Automatic validation
-
-        Range checking based on command definition
-
-    Confirming the telegram
-
-        Send
-
-        Re-enter
-
-        Quit
+    Quick mode: Skip through with enter using first/ default option
 
 ## 🔧 Telegram Format
 
@@ -143,11 +127,20 @@ COMMANDS = {
         ...
 }
 
-This enables:
+This enables: automatic menu generation / input validation / parameter range checking
 
-    automatic menu generation
+## Emulator
 
-    input validation
+The emulator can be used to simulate different sensor behaviour in Linux systems. 
+Generate virtual ports x and y:
 
-    parameter range checking
+    socat -d -d pty,raw,echo=0,mode=666 pty,raw,echo=0,mode=666
+
+Start emulator with port x:
+
+    python3 -m emulator.emulator /dev/pts/x
+
+Start main programm and use virtual port option and enter port y. Note virtual ports work with 8N1.
+
+
 
