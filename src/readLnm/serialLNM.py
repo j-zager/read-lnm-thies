@@ -72,23 +72,12 @@ def is_DA(msg: bytes) -> bool:
         if s.count(";") != 3:
             return False
 
-        # if s.count(".") != 3:
-        #     return False
-
         parts = s.split(";")
         if len(parts) < 2:
             return False
         
         if not (s[5] == ";" and s[11] == ";" and s[16] == ";"):
             return False
-
-        # # alle außer letztem müssen Punkt haben
-        # if not all("." in p for p in parts[:-1]):
-        #     return False
-
-        # # letztes Feld darf keinen Punkt haben
-        # if "." in parts[-1]:
-        #     return False
 
         return True
     except:
