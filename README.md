@@ -12,6 +12,13 @@ The tool can be executed in three different ways:
 
     via python -m readLnm.communicateLnm
 
+    by adding -d  or --debug the debug logging mode will be activated: 
+
+    e.g. 
+    
+    python -m readLnm -d
+    
+
 ## 🚀 Features
 
     Interactive CLI menu for building telegrams

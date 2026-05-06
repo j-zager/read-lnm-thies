@@ -1,15 +1,13 @@
 import asyncio
-from generic_utils.io.loggerConfig import getLogger
+import argparse
 from readLnm.commands import cli_menu 
 from readLnm.processManager import do_single_message
 from readLnm.processManager import portSelection
-from generic_utils.io.loggerConfig import setDefaultLoggerLevel
-import logging
+from readLnm.myLogger import get_logger, setup_logger
+
+logger = get_logger(__name__)
 
 
-
-
-logger = getLogger("ThiesLNM comm log")
 
 
 from enum import Enum, auto
@@ -129,9 +127,28 @@ def confirm_message(msg: bytes) -> str:
 
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Kommunikation mit LNM Thies")
+    parser.add_argument(
+        "-d", "--debug",
+        action="store_true",
+        help="Aktiviere Debug-Logging"
+    )
+    return parser.parse_args()
+
 def communicate():
-    logger.info("startLNM com")
-    setDefaultLoggerLevel(logging.DEBUG)
+    args = parse_args()
+
+    # Debug-Mode abhängig vom Parameter
+    debug_mode = args.debug
+
+    # Logger JETZT konfigurieren
+    setup_logger(
+        debug_mode=debug_mode,
+        logfile_name="climate_LNM_Thies.log"
+    )
+    logger.debug("Debug Modus aktiviert")
+    logger.info("Starte LNM Kommunikation")
     asyncio.run(run_fsm())
 
 if __name__ == "__main__":

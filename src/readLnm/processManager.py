@@ -1,12 +1,11 @@
 import serial
-import asyncio
-from readLnm.serialRS485 import open_port,send_bytes,read_bytes,read_bytes_marker,close_all_ports,choose_serial_port, flush_serial
+from readLnm.serialRS485 import open_port,send_bytes,close_all_ports,choose_serial_port, flush_serial
 from readLnm.commands import get_rx_len_from_msg, createMsgMarker
-from generic_utils.io.loggerConfig import getSerialLogger 
 from readLnm.handleVirtualPorts import init_virtual_port_selection
 from readLnm.serialLNM import read_bytes_cases
+from readLnm.myLogger import get_logger
 
-logger = getSerialLogger()
+logger = get_logger(__name__)
 
 async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
 

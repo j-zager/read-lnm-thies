@@ -3,10 +3,10 @@ from enum import Enum, auto
 import asyncio
 import serial
 
-from generic_utils.io.loggerConfig import getSerialLogger
+from readLnm.myLogger import get_logger
 from readLnm.specialLnmCommands import parse_DA,parse_DX,parse_DD,parse_ZT
 
-logger = getSerialLogger()
+logger = get_logger(__name__)
 
 
 

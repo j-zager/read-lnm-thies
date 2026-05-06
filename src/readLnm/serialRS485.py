@@ -1,12 +1,11 @@
 import asyncio
 import serial
 import serial.tools.list_ports
-from generic_utils.io.loggerConfig import getSerialLogger 
 import platform
 from readLnm.handleVirtualPorts import  smart_select_port
+from readLnm.myLogger import get_logger
 
-
-logger = getSerialLogger()
+logger = get_logger(__name__)
 
 # ---------------------------------------------------------
 # 1. Ports finden

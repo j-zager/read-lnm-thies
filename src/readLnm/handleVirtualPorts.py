@@ -3,11 +3,11 @@
 
 import serial
 import serial.tools.list_ports
-from generic_utils.io.loggerConfig import getSerialLogger 
+from readLnm.myLogger import get_logger
 import os
 import platform
 
-logger = getSerialLogger()
+logger = get_logger(__name__)
 
 
 def init_virtual_port_selection() -> str | None:
@@ -21,6 +21,7 @@ def init_virtual_port_selection() -> str | None:
 
     if use_virtual == "n":
         return None
+    
     
     # Plattform bestimmen
     system = platform.system().lower()
