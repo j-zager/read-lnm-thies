@@ -1,49 +1,3 @@
-# COMMANDS = {
-#     "KY": {"desc": "Command mode (0=user, 1=config)", "set": True,  "range": (0, 1)},
-#     "BR": {"desc": "Baudrate (5 = 9600Bd 8N1)",        "set": True,  "range": (0, 99999)},
-#     "BD": {"desc": "Duplex (0=Full, 1=Half)",          "set": True,  "range": (0, 1)},
-#     "ID": {"desc": "Device Address",                   "set": True,  "range": (0, 99)},
-#     "RS": {"desc": "Reset Sensor (1)",                 "set": True,  "range": (1, 1)},
-#     "SV": {"desc": "Software Version",                 "set": False},
-#     "SB": {"desc": "Bootloader Version",               "set": False},
-#     "SN": {"desc": "Serial Number",                    "set": False},
-#     "TM": {"desc": "Telegram Mode (3..10)",            "set": True,  "range": (3, 10)},
-#     "TR": {"desc": "Request Telegram (4..7)",          "set": True,  "range": (4, 7)},
-#     "TO": {"desc": "Time interval telegram 10 (1..10)", "set": True, "range": (1, 10)},
-#     "ZH": {"desc": "Set Hour (0..23)",                 "set": True,  "range": (0, 23)},
-#     "ZM": {"desc": "Set Minute (0..59)",               "set": True,  "range": (0, 59)},
-#     "ZS": {"desc": "Set Second (0..59)",               "set": True,  "range": (0, 59)},
-#     "ZD": {"desc": "Set Day (1..31)",                  "set": True,  "range": (1, 31)},
-#     "ZN": {"desc": "Set Month (1..12)",                "set": True,  "range": (1, 12)},
-#     "ZY": {"desc": "Set Year (0..99)",                 "set": True,  "range": (0, 99)},
-#     "ZT": {"desc": "Get Sensor Date + Time",           "set": False},
-#     "DX": {"desc": "Self Diagnostic",                  "set": False},
-#     "FM": {"desc": "Error Count",                      "set": False},
-#     "RF": {"desc": "Reset Error Count (1)",            "set": True,  "range": (1, 1)},
-#     "AT": {"desc": "Temp calibration (0..106)",        "set": True,  "range": (0, 106)},
-#     "AV": {"desc": "Amount Adjustment (80..120%)",     "set": True,  "range": (80, 120)},
-#     "AU": {"desc": "Measuring Area",                   "set": False},
-#     "RA": {"desc": "Reset Amount (1)",                 "set": True,  "range": (1, 1)},
-#     "PT": {"desc": "Time Duration Amount",             "set": False},
-#     "D1": {"desc": "Digital Output 1",                 "set": True,  "range": (0, 1)},
-#     "D2": {"desc": "Digital Output 2",                 "set": True,  "range": (0, 1)},
-#     "DA": {"desc": "Auxiliary Measuring Channel",      "set": True,  "range": (0, 99999)},
-#     "HK": {"desc": "Heating head (0/1)",               "set": True,  "range": (0, 1)},
-#     "HB": {"desc": "Heating holder (0/1)",             "set": True,  "range": (0, 1)},
-#     "HG": {"desc": "Heating housing (0/1)",            "set": True,  "range": (0, 1)},
-#     "YD": {"desc": "Distribution data (3-4 chars)",    "set": True,  "range": (0, 9999)},
-#     "AC": {"desc": "Mittelungstrigger",                "set": False},
-#     "AG": {"desc": "Abgleich Groeßenmessung",          "set": False},
-#     "AP": {"desc": "Analoge Versorgung",               "set": False},
-#     "AX": {"desc": "Abgleich 100 Ohm Referenz",        "set": False},
-#     "AY": {"desc": "Abgleich 127 Ohm Referenz",        "set": False},
-#     "AZ": {"desc": "Zeitkalibration",                  "set": False},
-#     "OR": {"desc": "Ausgaberate",                      "set": False},
-#     "TC": {"desc": "Interner Trigger",                 "set": False},
-#     "TV": {"desc": "Interner Triggerwert",             "set": False},
-# }
-
-
 COMMANDS = {
     "KY": {"desc": "Command mode (0=user, 1=config)",  "set": True,  "range": (0, 1), "rx_len": 10},
     "BR": {"desc": "Baudrate (5 = 9600Bd 8N1)",        "set": True,  "range": (0, 99999), "rx_len": 10},
@@ -161,10 +115,12 @@ def build_message(command: str, device_id: int = 0, value: int | None = None) ->
 cmd = None
 def cli_menu():
     global cmd
-    print("=== LNM Thies RS232 CLI Menü ===")
+
+    print("================================")
+    print("=== LNM Thies RS485 CLI Menü ===")
     print("1) Lesen")
     print("2) Setzen")
-    print("================================")
+    print("================================\n")
 
     mode = input("Modus wählen (1/2): ").strip()
     while mode not in ("1", "2",""):
@@ -192,7 +148,7 @@ def cli_menu():
     else:
         msg = build_message(cmd, dev_id, None)
 
-    print("\nErzeugtes Telegramm:", msg)
+    print(f">> Erzeugtes Telegramm:{msg}")
     return msg
 
 

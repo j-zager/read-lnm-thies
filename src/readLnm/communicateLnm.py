@@ -32,14 +32,14 @@ async def run_fsm():
 
             # -------------------------
             case State.INIT:
-                print("STATE: INIT")
+                logger.debug("STATE: INIT")
                 port =portSelection()
                 fsm_state = State.REQUEST_MESSAGE
                 continue
 
             # -------------------------
             case State.REQUEST_MESSAGE:
-                print("STATE: REQUEST_MESSAGE")
+                logger.debug("STATE: REQUEST_MESSAGE")
                 msg = cli_menu()
 
                 if msg is None:
@@ -57,7 +57,7 @@ async def run_fsm():
 
             # -------------------------
             case State.SEND_MESSAGE:
-                print("STATE: SEND_MESSAGE")
+                logger.debug("STATE: SEND_MESSAGE")
                 response = await do_single_message(msg,port)
                 fsm_state = State.CHECK_MESSAGE
                 print("")
@@ -65,24 +65,23 @@ async def run_fsm():
 
             # -------------------------
             case State.CHECK_MESSAGE:
-                print("STATE: CHECK_MESSAGE")
+                logger.debug("STATE: CHECK_MESSAGE")
                 if response:
                     fsm_state = State.RECEIVE_MESSAGE
                 else:
-                    #print("Keine Antwort erhalten.")
                     fsm_state = State.IDLE
                 continue
 
             # -------------------------
             case State.RECEIVE_MESSAGE:
-                print("STATE: RECEIVE_MESSAGE")
-                print("Antwort:", response)
+                logger.debug("STATE: RECEIVE_MESSAGE")
+                logger.debug(f"Antwort:{response}")
                 fsm_state = State.IDLE
                 continue
 
             # -------------------------
             case State.IDLE:
-                print("STATE: IDLE")
+                logger.debug("STATE: IDLE")
                 again = input("Neue Nachricht senden? (J/N): ").strip().lower()
                 if again == "j" or again == "":
                     msg = None
@@ -94,8 +93,8 @@ async def run_fsm():
 
             # -------------------------
             case State.EXIT:
-                print("STATE: EXIT")
-                print("Alle Ressourcen wurden freigegeben. Programm endet.")
+                logger.debug("STATE: EXIT")
+                print("Programm endet.")
                 break
 
 
@@ -111,7 +110,7 @@ def confirm_message(msg: bytes) -> str:
         "quit"  → Programm beenden
     """
 
-    print(f"\nTelegramm: {msg}")
+    logger.debug(f"\nTelegramm: {msg}")
 
     while True:
         choice = input("\nSenden (J), neu eingeben (N), beenden (Q): ").strip().lower()
@@ -147,8 +146,12 @@ def communicate():
         debug_mode=debug_mode,
         logfile_name="climate_LNM_Thies.log"
     )
+    print("================================")
+    print("================================")
+    print("==  Starte LNM Kommunikation  ==")
+    print("================================\n")
     logger.debug("Debug Modus aktiviert")
-    logger.info("Starte LNM Kommunikation")
+
     asyncio.run(run_fsm())
 
 if __name__ == "__main__":

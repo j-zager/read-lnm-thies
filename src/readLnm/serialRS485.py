@@ -2,7 +2,6 @@ import asyncio
 import serial
 import serial.tools.list_ports
 import platform
-from readLnm.handleVirtualPorts import  smart_select_port
 from readLnm.myLogger import get_logger
 
 logger = get_logger(__name__)
@@ -39,7 +38,7 @@ def open_port(  port: str = "COM1",
             timeout=0,
             write_timeout=1.0
         )
-        logger.info(f"successfully opened: {port}")
+        print(f"successfully opened: {port}\n")
         return ser
 
     except FileNotFoundError:
@@ -63,7 +62,7 @@ def close_all_ports(connections: dict[str, serial.Serial]):
         try:
             if ser and ser.is_open:
                 ser.close()
-                logger.info(f"port closed: {port}")
+                print(f"port closed: {port}")
             else:
                 logger.debug(f"port {port} was closen")
         except Exception as e:
@@ -385,16 +384,16 @@ def choose_serial_port() -> str | None:
     #     logger.info("one available port:{ports[0]} is taken.")
     #     return ports[0]
 
-    print("Available serial ports:")
+    logger.info("Available serial ports:")
     for idx, port in enumerate(ports):
-        print(f"  [{idx}] {port}")
+        logger.info(f"  [{idx}] {port}")
 
     while True:
         user_input = input("Select port index: ").strip()
 
         # Check if input is a number
         if not user_input.isdigit():
-            print("Please enter a valid number")
+            logger.info("Please enter a valid number")
             continue
 
         index = int(user_input)
@@ -405,7 +404,7 @@ def choose_serial_port() -> str | None:
             logger.info(f"User selected port: {selected}")
             return selected
         else:
-            print("Index out of range, try again")
+            logger.warning("Index out of range, try again")
 
 
 def flush_serial(ser: serial.Serial):

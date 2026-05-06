@@ -175,9 +175,9 @@ async def read_bytes_cases(
     ASCII_ALLOWED = b"0123456789+-.:;"
 
     end_time = asyncio.get_event_loop().time() + timeout
-    logger.info("print all received bytes/n")
+    logger.debug("print all received bytes/n")
 
-    print(f">>>>>>>>>> Start:", end="")
+    print(f">>>>>>>>>> Start: ", end="")
     
     while True:
 
@@ -203,26 +203,25 @@ async def read_bytes_cases(
             # IDLE → Warten auf Start
             # ---------------------------------------------------
             case RxState.IDLE:
-                #logger.info("RxState.IDLE")
 
                 # Zyklisches Paket beginnt
                 if b == stx:
                     ps.state = RxState.CYCLIC
                     ps.buffer.clear()
                     ps.buffer.append(b[0])
-                    logger.info(f"STX: start cyclic data detected ")
+                    logger.debug(f"STX: start cyclic data detected ")
                     continue
 
                 # Marker‑Antwort beginnt
                 if marker and b[0] == marker[0]:
                     result = bytearray(b)
                     ps.state = RxState.COLLECT
-                    logger.info(f"Start of marker response detected ")
+                    logger.debug(f"Start of marker response detected ")
                     continue
 
                 # ASCII‑Antwort beginnt
                 if b in ASCII_ALLOWED:
-                    logger.info(f"ascii response starts")
+                    logger.debug(f"ascii response starts")
                     result = bytearray(b)
                     ps.state = RxState.COLLECT
                     continue
@@ -234,20 +233,19 @@ async def read_bytes_cases(
             # CYCLIC → Zyklisches Paket verwerfen
             # ---------------------------------------------------
             case RxState.CYCLIC:
-                #logger.info("RxState.Cyclic")
 
                 if b == etx:
                     ps.state = RxState.IDLE
                     ps.buffer.clear()
-                    logger.info(f"ETX:Discard cyclic data")
-                    print(" ####### ",end="")
+                    logger.debug(f"ETX:Discard cyclic data")
+                    print("\n####### ",end="")
                     continue
 
                 ps.buffer.append(b[0])
 
                 # Schutz gegen endlose Pakete
                 if len(ps.buffer) > 4096:
-                    logger.info(f"Discard cyclic to big buffer  data")
+                    logger.debug(f"Discard cyclic to big buffer  data")
                     ps.state = RxState.IDLE
                     ps.buffer.clear()
 
@@ -257,39 +255,38 @@ async def read_bytes_cases(
             # COLLECT → Antwort sammeln
             # ---------------------------------------------------
             case RxState.COLLECT:
-                #logger.info("RxState.COLLECT")
                 result.extend(b)
 
                 if b[0] == 0x0D:
-                    logger.info("[DEBUG] generic EndmarkerMessage 0x0D detected ")
+                    logger.debug("[DEBUG] generic EndmarkerMessage 0x0D detected ")
 
                 if b == etx:
                     ps.state = RxState.IDLE
                     result.clear()
-                    logger.info(f"ETX:Discard collect data in case started without stx byte")
-                    print(" #-#-#-# ",end="")
+                    logger.debug(f"ETX:Discard collect data in case started without stx byte")
+                    print("\n#-#-#-# ",end="")
                     continue
 
                 # Marker‑Antwort → Länge erreicht?
                 if marker and result.startswith(marker):
-                    logger.info("marker startswith -> ok")
+                    logger.debug("marker startswith -> ok")
                     if len(result) >= num:
                         logger.debug(f"Marker:RX {len(result)} bytes: {result.hex(' ')}")
                         return result
                     
                 # Fehlerantwort → beginnt mit "!00CI"
                 if wrg_cmd_marker and result.startswith(wrg_cmd_marker):
-                    logger.info("wrg_cmd_marker startswith -> ok")
+                    logger.debug("wrg_cmd_marker startswith -> ok")
                     if len(result) >= num:
                         err = result[9]  # ASCII '2','4','8'
                         if err == 0x32:
-                            logger.info("Err:2: Unknown Command")
+                            logger.warning("Err:2: Unknown Command")
                         elif err == 0x34:
-                            logger.info("Err:4: Parameter out of allowed range")
+                            logger.warning("Err:4: Parameter out of allowed range")
                         elif err == 0x38:
-                            logger.info("Err:8: Invalid Command in this mode(Check KY)")
+                            logger.warning("Err:8: Invalid Command in this mode(Check KY)")
                         else:
-                            logger.info(f"Unknown Error:{err}")
+                            logger.error(f"Unknown Error:{err}")
                         return result
 
                 # ASCII‑Antwort → Struktur prüfen
@@ -299,28 +296,28 @@ async def read_bytes_cases(
                     if is_ZT(result):
                         text = result.decode("ascii", errors="ignore")
                         data = parse_ZT(text)
-                        logger.info(f"ZT: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.debug(f"ZT: RX {len(result)} bytes: {result.hex(' ')}")
                         logger.info("\n" + data.pretty())
                         return result
 
                     if is_DA(result):
                         text = result.decode("ascii", errors="ignore")
                         data = parse_DA(text)
-                        logger.info(f"DA: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.debug(f"DA: RX {len(result)} bytes: {result.hex(' ')}")
                         logger.info("\n" + data.pretty())
                         return result
 
                     if is_DD(result):
                         text = result.decode("ascii", errors="ignore")
                         data = parse_DD(text)
-                        logger.info(f"DD: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.debug(f"DD: RX {len(result)} bytes: {result.hex(' ')}")
                         logger.info("\n" + data.pretty())
                         return result
 
                     if is_DX(result):
                         text = result.decode("ascii", errors="ignore")
                         data = parse_DX(text)
-                        logger.info(f"DX: RX {len(result)} bytes: {result.hex(' ')}")
+                        logger.debug(f"DX: RX {len(result)} bytes: {result.hex(' ')}")
                         logger.info("\n" + data.pretty())
                         return result
 

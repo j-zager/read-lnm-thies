@@ -1,4 +1,4 @@
-# LNM Thies RS485 Communication Tool
+# Climate LNM Thies Disdrometer RS485 Communication Tool
 
 This project provides a command‑line interface (CLI) and communication framework for interacting with Thies LNM Disdrometer sensors over RS485.
 It supports building valid telegrams, reading and writing device parameters, and handling communication through an internal finite state machine (FSM). 
@@ -15,7 +15,7 @@ The tool can be executed in three different ways:
     by adding -d  or --debug the debug logging mode will be activated: 
 
     e.g. 
-    
+
     python -m readLnm -d
     
 

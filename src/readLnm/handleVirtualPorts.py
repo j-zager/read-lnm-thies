@@ -3,11 +3,8 @@
 
 import serial
 import serial.tools.list_ports
-from readLnm.myLogger import get_logger
 import os
 import platform
-
-logger = get_logger(__name__)
 
 
 def init_virtual_port_selection() -> str | None:
@@ -91,7 +88,7 @@ def auto_select_virtual_port(portId:int=0) -> str | None:
         return None
 
     if portId < len(vports):
-        logger.info(f"Auto-selected virtual port: {vports[portId]}")
+        print(f"Auto-selected virtual port: {vports[portId]}")
         return vports[portId]
 
     return None

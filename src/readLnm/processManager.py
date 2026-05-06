@@ -11,13 +11,13 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
 
     # PTYs (socat) cannot handle parity
     if "/dev/pts/" in port:
-        logger.info("Detected PTY → using PARITY_NONE for testing")
+        logger.debug("Detected PTY → using PARITY_NONE for testing")
         par = serial.PARITY_NONE
 
     # Real hardware → use EVEN parity
     else:
         #logger.info("Detected real serial device → using PARITY_EVEN")
-        logger.info("Detected real serial device → using PARITY_NONE in old device")
+        logger.debug("Detected real serial device → using PARITY_NONE in old device")
         #par = serial.PARITY_EVEN
         par = serial.PARITY_NONE
         logger.warning("Detected real serial device → using PARITY_NONE because of old device configuration")
@@ -53,23 +53,27 @@ async def do_single_message(msg: bytes = b"00SV\r",port:int=None):
         await close_all_ports({port:ser})
         return
     
-    logger.info(f"TX → {bytearray(msg).hex(' ')}  ASCII: {bytearray(msg).decode(errors='ignore')}")
+    logger.debug(f"TX → {bytearray(msg).hex(' ')}  ASCII: {bytearray(msg).decode(errors='ignore')}")
+    print("================================")
+    print(f"TX → {bytearray(msg).hex(' ')}  ASCII: {bytearray(msg).decode(errors='ignore')}\n")
 
     # 3. Antwort empfangen (z. B. 10 ASCII-Zeichen)
     response = None
     if expects_response:
         rxChexpected = get_rx_len_from_msg(msg)
-        logger.info(f"excpected bytes from {msg}:{rxChexpected}")
+        logger.debug(f"excpected bytes from {msg}:{rxChexpected}")
         resmarker = createMsgMarker(msg =msg, prefix="!")
-        logger.info(f"responsemarker:{resmarker}")
+        logger.debug(f"responsemarker:{resmarker}")
         response = await read_bytes_cases(ser=ser, num = rxChexpected, marker=resmarker, timeout = 1.0,stx=b"\x02",etx=b"\x03")
-        print("End <<<<<<<<<<")
+        print("End <<<<<<<<<<\n")
         if response:
-            logger.info(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}")
+            print(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}")
+            print("================================\n")
+            logger.debug(f"RX ← {response.hex(' ')}  ASCII: {response.decode(errors='ignore')}")
         else:
             logger.warning("Timeout or no responsive (response was expected!)")
     else:
-        logger.info("SET Command → No response expected")
+        print("SET Command → No response expected")
 
     # 4. Port schließen
     close_all_ports({port:ser})
@@ -84,5 +88,5 @@ def portSelection()->str:
     else:
         #port = "/dev/pts/4" 
         port = virtualPort
-    logger.info(f"used Port{port}")
+    print(f"used Port{port}\n")
     return port
