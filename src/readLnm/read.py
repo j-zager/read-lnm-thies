@@ -1,6 +1,14 @@
 import serial
+from readLnm.myLogger import get_logger, setup_logger
+
+logger = get_logger(__name__)
 
 def read(port="/dev/ttyACM0"):
+        # Logger JETZT konfigurieren
+    setup_logger(
+        debug_mode=True,
+        logfile_name="Sniffer_protocol_climate_LNM_Thies.log"
+    )
 
     try: 
         par=serial.PARITY_NONE
@@ -27,12 +35,13 @@ def read(port="/dev/ttyACM0"):
         return None
 
     print(f"Nur Reader läuft auf {port} (9600 {par})")
+    response = bytearray()
 
     while True:
         b = ser.read(1)
         if not b:
             continue
-
+        response.extend(b)
         # Prüfen auf STX (0x02)
         if b == b'\x02':
             print("STX (0x02) empfangen")
@@ -40,8 +49,12 @@ def read(port="/dev/ttyACM0"):
         # Prüfen auf ETX (0x03)
         if b == b'\x03':
             print("ETX (0x03) empfangen")
+            logger.debug(f"RX ← {response.hex(' ')}")
+            logger.debug(f"ASCII: {response.decode(errors='ignore')}")
+            response.clear()
 
-        print(f"RX ← {b.hex(' ')}  ASCII: {b.decode(errors='ignore')}")
+        #print(f"RX ← {b.hex(' ')}  ASCII: {b.decode(errors='ignore')}")
+        logger.debug(f"RX ← {b.hex(' ')}  ASCII: {b.decode(errors='ignore')}")
 
 
 
