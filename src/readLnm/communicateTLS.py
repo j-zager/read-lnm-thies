@@ -14,7 +14,6 @@ TWP = 0.050  # 50 ms Mindestwartezeit der Primary vor dem nächsten Senden
 class TlsState(Enum):
     INIT = auto()
     SEND_RQS = auto()
-    WAIT_FOR_S1 = auto()
     SEND_RES0 = auto()
     WAIT_FOR_RR = auto()
     RESTART_PROCESS = auto()
@@ -110,26 +109,29 @@ def build_ft12_telegram(control_byte: int, addr: int, user_data: bytes = b"") ->
     # Das normale Standard-Telegramm generieren
     normal_telegram = bytes([0x68, length, length, 0x68]) + protected_area + bytes([cs, 0x16])
     
-    # JETZT: Jedes Byte bitweise umdrehen für die TLS-Leitungs-Reihenfolge
-    #mirrored_bytes = [reverse_bits(b) for b in normal_telegram]
+    # # JETZT: Jedes Byte bitweise umdrehen für die TLS-Leitungs-Reihenfolge
+    # #mirrored_bytes = [reverse_bits(b) for b in normal_telegram]
 
-    # 1. Schritt: Erstelle eine leere Liste, in der wir die gespiegelten Bytes sammeln.
-    mirrored_bytes_liste = []
+    # # 1. Schritt: Erstelle eine leere Liste, in der wir die gespiegelten Bytes sammeln.
+    # mirrored_bytes_liste = []
 
-    # 2. Schritt: Starte eine klassische Schleife.
-    # Wir gehen nacheinander jedes einzelne Byte aus dem normalen Telegramm durch.
-    for b in normal_telegram:
+    # # 2. Schritt: Starte eine klassische Schleife.
+    # # Wir gehen nacheinander jedes einzelne Byte aus dem normalen Telegramm durch.
+    # for b in normal_telegram:
         
-        # 3. Schritt: Rufe die Umdreh-Funktion für das EINE aktuelle Byte auf.
-        # Das Ergebnis (die umgedrehte Zahl) speichern wir kurz zwischen.
-        umgedrehtes_einzel_byte = reverse_bits(b)
+    #     # 3. Schritt: Rufe die Umdreh-Funktion für das EINE aktuelle Byte auf.
+    #     # Das Ergebnis (die umgedrehte Zahl) speichern wir kurz zwischen.
+    #     umgedrehtes_einzel_byte = reverse_bits(b)
         
-        # 4. Schritt: Hänge das umgedrehte Byte hinten an unsere Sammel-Liste an.
-        mirrored_bytes_liste.append(umgedrehtes_einzel_byte)
+    #     # 4. Schritt: Hänge das umgedrehte Byte hinten an unsere Sammel-Liste an.
+    #     mirrored_bytes_liste.append(umgedrehtes_einzel_byte)
 
-    # Am Ende verwandeln wir die Liste wieder in ein echtes Python 'bytes'-Objekt.
-    mirrored_bytes = bytes(mirrored_bytes_liste)
-    return mirrored_bytes
+    # # Am Ende verwandeln wir die Liste wieder in ein echtes Python 'bytes'-Objekt.
+    # mirrored_bytes = bytes(mirrored_bytes_liste)
+    # # print(mirrored_bytes.hex(' ').upper())
+    # # return mirrored_bytes
+    print(normal_telegram.hex(' ').upper())
+    return normal_telegram
 
 def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_address: bool) -> bool:
     """
@@ -166,7 +168,8 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
             new_raw_bytes = ser_conn.read(bytes_waiting)
             raw_receive_buffer += new_raw_bytes
             
-            new_clear_bytes = unmirror_response_bytes(new_raw_bytes)
+            # new_clear_bytes = unmirror_response_bytes(new_raw_bytes)
+            new_clear_bytes = raw_receive_buffer
             clear_receive_buffer += new_clear_bytes
             print(f"  [Leitungs-Event] Empfangen: {bytes_waiting} Bytes | Raw: {new_raw_bytes.hex().upper()} | Klar: {new_clear_bytes.hex().upper()}")
 
@@ -195,7 +198,7 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                     ser_conn.write(telegramm)
                     ser_conn.flush()
                     last_send = now
-                    state = TlsState.WAIT_FOR_S1
+                    state = TlsState.WAIT_FOR_S1_START
 
 
             # =================================================================
@@ -220,6 +223,7 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                         state = TlsState.WAIT_FOR_S1_HEADER
                     else:
                         # Müll wegschneiden, Hauptschleife liest im nächsten Takt weiter
+                        print(f"trash data{clear_receive_buffer[0]}")
                         clear_receive_buffer = clear_receive_buffer[1:]
 
             # =================================================================
@@ -333,6 +337,8 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                         state = TlsState.FINISH_PROCESS
                     else:
                         if current_id < 199:
+                            raw_receive_buffer = b""
+                            clear_receive_buffer = b""
                             state = TlsState.RESTART_PROCESS
                         else:
                             success = False
@@ -362,6 +368,7 @@ def main() -> None:
     # Wir testen die zwei gängigsten TLS-Modi (8E1 und 7E1) nacheinander durch
     konfigurationen = [
         {"name": "9600 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
+        {"name": "19200 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
         # {"name": "9600 Baud, 8O1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_ODD},
         # {"name": "9600 Baud, 8N1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_NONE},
         # {"name": "9600 Baud, 7E1", "bytesize": serial.SEVENBITS, "parity": serial.PARITY_EVEN},
@@ -386,7 +393,7 @@ def main() -> None:
             
             time.sleep(1.0)  # Einschwingzeit für Linux-Kernel & Wandler
 
-            reaktion = run_tls_state_machine(ser_conn=ser, target_addr=1,search_address=True)
+            reaktion = run_tls_state_machine(ser_conn=ser, target_addr=0,search_address=True)
             
             ser.close()
             
@@ -395,7 +402,7 @@ def main() -> None:
                 break
             else:
                 print(f"\n[Kein Erfolg] Der Sensor hat im Modus {konfig['name']} nicht erfolgreich initialisiert!")
-                break
+                continue
                 
         except serial.SerialException as se:
             print(f"Fehler beim Öffnen von {PORT}: {se}")
