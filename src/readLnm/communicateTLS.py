@@ -19,6 +19,9 @@ class TlsState(Enum):
     WAIT_FOR_RR = auto()
     RESTART_PROCESS = auto()
     FINISH_PROCESS = auto()
+    WAIT_FOR_S1_START = auto()
+    WAIT_FOR_S1_HEADER = auto()
+    WAIT_FOR_S1_FRAME = auto()
 
 
 def reverse_bits_mathematisch(b: int) -> int:
@@ -142,6 +145,15 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
     raw_receive_buffer = b""
     clear_receive_buffer = b""
 
+    # --- HIER DIE HILFSFUNKTION DEFINIEREN ---
+    def reset_buffers_and_timer():
+        nonlocal clear_receive_buffer, raw_receive_buffer, last_send
+        clear_receive_buffer = b""
+        raw_receive_buffer = b""
+        last_send = time.time()  # nutzt direkt das aktuelle 'now' via time.time()
+        ser_conn.reset_input_buffer()  # Schadet nie, das hier direkt mitzuerledigen!
+
+
     print(f"\n*** Starte TLS State Machine (Scan-Modus: {is_scan_mode}, Start-Ziel-ID: {target_addr}) ***")
 
     while True:
@@ -186,111 +198,112 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                     state = TlsState.WAIT_FOR_S1
 
 
-            case TlsState.WAIT_FOR_S1:
-                s1_komplett = False
-                erwartete_gesamtlaenge = 0
-                
-                # REINIGUNG ÜBER DIE MAIN-SCHLEIFE:
-                # Wenn der Puffer Daten enthält, aber nicht mit 0x68 anfängt,
-                # werfen wir NUR das erste Byte weg und lassen die Hauptschleife neu durchlaufen.
-                if len(clear_receive_buffer) > 0 and clear_receive_buffer[0] != 0x68:
-                    # print(f"  [Parser] Verwerfe 1 Byte Rauschen: 0x{clear_receive_buffer[0]:02X}")
-                    clear_receive_buffer = clear_receive_buffer[1:]
-                    # WICHTIG: Den restlichen Code in diesem Durchlauf überspringen,
-                    # damit der Puffer im nächsten Schleifendurchlauf neu bewertet wird.
-                    continue 
-
-                # Jetzt wissen wir: WENN Bytes im Puffer sind, fängt der Puffer mit 0x68 an.
-                # Wir brauchen mindestens 4 Bytes, um den FT1.2-Header zu validieren.
-                if len(clear_receive_buffer) >= 4:
+            # =================================================================
+            # SUB-STATE 1: Start-Byte finden (Reinigung)
+            # =================================================================
+            case TlsState.WAIT_FOR_S1_START:
+                # Timeout läuft übergeordnet für die gesamte S1-Phase
+                if (now - last_send) >= TAP:
+                    print(f"  [Timeout] ID {current_id} antwortet nicht.")
+                    clear_receive_buffer = b""
+                    raw_receive_buffer = b""
+                    last_send = now
+                    if is_scan_mode: 
+                        state = TlsState.RESTART_PROCESS 
+                    else: 
+                        state = TlsState.FINISH_PROCESS
                     
-                    # FT1.2-Spezifikation: Byte 0 und Byte 3 MÜSSEN 0x68 sein.
-                    if clear_receive_buffer[0] == 0x68 and clear_receive_buffer[3] == 0x68:
-                        laengen_byte = clear_receive_buffer[1]
-                        erwartete_gesamtlaenge = laengen_byte + 6
-                        
-                        # Warten, bis der gesamte Rahmen (stückchenweise) eingetroffen ist
-                        if len(clear_receive_buffer) >= erwartete_gesamtlaenge:
-                            
-                            # Letztes Byte auf das offizielle TLS-Endezeichen (0x16) prüfen
-                            if clear_receive_buffer[erwartete_gesamtlaenge - 1] == 0x16:
-                                
-                                # Mathematische Prüfsummenvalidierung (Checksum)
-                                geschuetzter_bereich = clear_receive_buffer[4 : 4 + laengen_byte]
-                                berechnete_cs = sum(geschuetzter_bereich) & 0xFF
-                                empfangene_cs = clear_receive_buffer[erwartete_gesamtlaenge - 2]
-                                
-                                if berechnete_cs == empfangene_cs:
-                                    s1_komplett = True
-                                else:
-                                    print(f"  [WARNUNG] CS-Fehler bei ID {current_id}! Berechnet: {berechnete_cs:02X}, Empfangen: {empfangene_cs:02X}")
-                                    # Defekten Rahmen abschneiden, um den Puffer für neue Daten zu befreien
-                                    clear_receive_buffer = clear_receive_buffer[erwartete_gesamtlaenge:]
-                            else:
-                                print(f"  [WARNUNG] Protokoll-Fehler: Endzeichen ist 0x{clear_receive_buffer[erwartete_gesamtlaenge - 1]:02X} statt 0x16. Rahmen verworfen.")
-                                clear_receive_buffer = clear_receive_buffer[erwartete_gesamtlaenge:]
+                elif len(clear_receive_buffer) > 0:
+                    if clear_receive_buffer[0] == 0x68:
+                        # Startzeichen gefunden! Weiter zum Header
+                        print("Found start sign 0x68")
+                        state = TlsState.WAIT_FOR_S1_HEADER
                     else:
-                        # Fall: Puffer begann mit 0x68, aber Byte Index 3 ist kein 0x68. 
-                        # Das war ein Fehltreffer (Rauschen). Wir löschen das erste Byte und suchen weiter.
+                        # Müll wegschneiden, Hauptschleife liest im nächsten Takt weiter
                         clear_receive_buffer = clear_receive_buffer[1:]
 
-                # --- AUSWERTUNG STATUS ---
-                if s1_komplett:
-                    print(f"  [State: WAIT_FOR_S1] Gültiges S1-Telegramm von ID {current_id} dynamisch & CS-geprüft erkannt!")
-                    print(f"                       Inhalt: {clear_receive_buffer[:erwartete_gesamtlaenge].hex().upper()}")
-                    
-                    # 1. Erst sauber abschneiden (falls Rauschen direkt anhing)
-                    clear_receive_buffer = clear_receive_buffer[erwartete_gesamtlaenge:]
-                    raw_receive_buffer = raw_receive_buffer[erwartete_gesamtlaenge:]
-                    
-                    # 2. Den seriellen Puffer des Linux-Kernels komplett leeren.
-                    # Das löscht alle elektrischen Geister-Bytes, die beim Abschalten des Sensors entstanden sind.
-                    ser_conn.reset_input_buffer()
-                    
-                    # 3. Auch die Skript-Puffer jetzt final nullen, da wir wissen, dass keine Daten folgen können.
+            # =================================================================
+            # SUB-STATE 2: Header validieren (4 Bytes)
+            # =================================================================
+            case TlsState.WAIT_FOR_S1_HEADER:
+                if (now - last_send) >= TAP:
                     clear_receive_buffer = b""
                     raw_receive_buffer = b""
-                    
-                    # Timings setzen für die 50ms-Sperre (Twp) vor SEND_RES0
-                    last_send = now 
-                    state = TlsState.SEND_RES0
+                    last_send = now
 
-                    
-                elif (now - last_send) >= TAP:
-                    print(f"  [State: WAIT_FOR_S1] Timeout (Tap={int(TAP*1000)}ms) für ID {current_id} abgelaufen.")
-                    
-                    # Puffer komplett für die nächste ID nullen
-                    clear_receive_buffer = b""
-                    raw_receive_buffer = b""
-                    
-                    if not is_scan_mode:
-                        success = False
-                        state = TlsState.FINISH_PROCESS
-                    else:
-                        last_send = now 
+                    if is_scan_mode: 
                         state = TlsState.RESTART_PROCESS
+                    else:
+                        state = TlsState.FINISH_PROCESS
+                     
+                elif len(clear_receive_buffer) >= 4:
+                    if clear_receive_buffer[3] == 0x68:
+                        # Header ist gültig (Byte 0 und 3 sind 0x68). Weiter zum Rest des Rahmens.
+                        print("Header is valid:buffer[3] = 0x68")
+                        state = TlsState.WAIT_FOR_S1_FRAME
+                    else:
+                        # Fehlalarm (Rauschen). Erstes Byte verwerfen und neu nach Start suchen.
+                        clear_receive_buffer = clear_receive_buffer[1:]
+                        print("Error at header!")
+                        state = TlsState.WAIT_FOR_S1_START
+
+            # =================================================================
+            # SUB-STATE 3: Ganzen Rahmen einlesen & Checksumme prüfen
+            # =================================================================
+            case TlsState.WAIT_FOR_S1_FRAME:
+                if (now - last_send) >= TAP:
+                    clear_receive_buffer = b""
+                    raw_receive_buffer = b""
+                    last_send = now
+                    if is_scan_mode: 
+                        state = TlsState.RESTART_PROCESS
+                    else:
+                        state = TlsState.FINISH_PROCESS
 
 
-            # case TlsState.WAIT_FOR_S1:
-                
-            #     # S1-Statusantwort ist laut FT1.2 ein variabler Rahmen mit einer Länge von 2.
-            #     # Gesamtlänge auf der Leitung: Länge (2) + 6 Bytes Hülle = 8 Bytes.
-            #     if len(clear_receive_buffer) >= 8:
-            #         # Gegenprüfung, ob der Rahmen korrekt formatiert ist (Start=0x68, Ende=0x16)
-            #         if clear_receive_buffer[0] == 0x68 and clear_receive_buffer[7] == 0x16:
-            #             print(f"  [State: WAIT_FOR_S1] Gültiges 8-Byte S1-Telegramm von ID {current_id} erkannt!")
-            #             print(f"                       Inhalt: {clear_receive_buffer.hex().upper()}")
-                        
-            #             # TIMING 6.1.2: Setzt die 50 ms Twp-Sperre ab dem exakten Erhalts-Zeitpunkt!
-            #             last_send = now 
-            #             state = TlsState.SEND_RES0
-            #     elif (now - last_send) >= TAP:
-            #         print(f"  [State: WAIT_FOR_S1] Timeout (Tap={int(TAP*1000)}ms) für ID {current_id} abgelaufen.")
-            #         if not is_scan_mode:
-            #             success = False
-            #             state = TlsState.FINISH_PROCESS
-            #         else:
-            #             state = TlsState.RESTART_PROCESS
+                else:
+                    # Schutz vor IndexError: Mindestens 2 Bytes nötig für Längen-Byte
+                    if len(clear_receive_buffer) < 2:
+                        print("Index Error - this case should not be entered!")
+                    else:
+                        laengen_byte = clear_receive_buffer[1]
+                        erwartete_gesamtlaenge = laengen_byte + 6
+
+                        if len(clear_receive_buffer) >= erwartete_gesamtlaenge:
+                            # Telegramm ist vollständig da! Jetzt final prüfen:
+
+                            if clear_receive_buffer[erwartete_gesamtlaenge - 1] == 0x16:
+                                end_byte_ok = True
+                                print("Telegram ending sign 0x16 detected")
+                            else:
+                                end_byte_ok = False
+
+
+                            geschuetzter_bereich = clear_receive_buffer[4 : 4 + laengen_byte]
+                            berechnete_cs = sum(geschuetzter_bereich) & 0xFF
+                            empfangene_cs = clear_receive_buffer[erwartete_gesamtlaenge - 2]
+                            
+                            if end_byte_ok and (berechnete_cs == empfangene_cs):
+                                print(f"  [ERFOLG] Gültiges S1-Telegramm von ID {current_id} empfangen!")
+                                
+                                # Puffer restlos leeren für die RES0-Phase
+                                clear_receive_buffer = b""
+                                raw_receive_buffer = b""
+                                ser_conn.reset_input_buffer()
+                                
+                                last_send = now
+                                state = TlsState.SEND_RES0
+                            else:
+                                print("  [WARNUNG] Telegramm korrupt (Endzeichen oder CS falsch).")
+                                clear_receive_buffer = b""
+                                raw_receive_buffer = b""
+                                last_send = now
+                                ser_conn.reset_input_buffer()
+                                if is_scan_mode: 
+                                    state = TlsState.RESTART_PROCESS
+                                else:
+                                    state = TlsState.FINISH_PROCESS
+
 
             case TlsState.SEND_RES0:
                 if (now - last_send) >= TWP:
