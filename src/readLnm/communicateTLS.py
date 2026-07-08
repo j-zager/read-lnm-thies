@@ -1,15 +1,19 @@
 import time
 import serial
+import argparse
 
 from enum import Enum, auto
 
 PORT = "/dev/ttyACM0"  # Oder "/dev/ttyUSB0"
 DEVICE_ALL = 0xFF
 DEVICE_ID = 0       # Deine ID = 0
+LIMIT_ID_TLS = 199
 
 # Timing-Konstanten nach TLS-Spezifikation (in Sekunden)
 TAP = 0.120  # 120 ms Antwortüberwachungszeit der Primary
 TWP = 0.050  # 50 ms Mindestwartezeit der Primary vor dem nächsten Senden
+
+findId_active = False
 
 class TlsState(Enum):
     INIT = auto()
@@ -98,6 +102,15 @@ def unmirror_response_bytes(raw_mirrored_bytes: bytes) -> bytes:
     return bytes(klartext_zahlen_liste)
 
 
+def build_ft12_short_telegram(control_byte: int, addr: int) -> bytes:
+    """Erzeugt ein mathematisch exaktes TLS FT1.2 Kurztelegramm."""
+    protected_area = bytes([control_byte, addr]) 
+    cs = sum(protected_area) & 0xFF
+
+    # Das normale Standard-Telegramm generieren
+    short_telegram = bytes([0x10]) + protected_area + bytes([cs, 0x16])
+    print(short_telegram.hex(' ').upper())
+    return short_telegram
 
 
 def build_ft12_telegram(control_byte: int, addr: int, user_data: bytes = b"") -> bytes:
@@ -146,6 +159,7 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
     success = False
     raw_receive_buffer = b""
     clear_receive_buffer = b""
+    fcb_toggle = 1
 
     # --- HIER DIE HILFSFUNKTION DEFINIEREN ---
     def reset_buffers_and_timer():
@@ -171,14 +185,15 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
             # new_clear_bytes = unmirror_response_bytes(new_raw_bytes)
             new_clear_bytes = raw_receive_buffer
             clear_receive_buffer += new_clear_bytes
-            print(f"  [Leitungs-Event] Empfangen: {bytes_waiting} Bytes | Raw: {new_raw_bytes.hex().upper()} | Klar: {new_clear_bytes.hex().upper()}")
+            #print(f"  [Leitungs-Event] Empfangen: {bytes_waiting} Bytes | Raw: {new_raw_bytes.hex().upper()} | Klar: {new_clear_bytes.hex().upper()}")
+            print(f"  [Leitungs-Event] Empfangen: {bytes_waiting} Bytes | Raw: {new_raw_bytes.hex('').upper()} | Klar: {new_clear_bytes.hex('').upper()}")
 
         # --- SWITCH-CASE STRUKTUR VIA MATCH-CASE ---
         match state:
             
             case TlsState.INIT:
                 if is_scan_mode:
-                    current_id = 1
+                    current_id = 0
                     print("  [State: INIT] Scan-Flag aktiv. Starte Adress-Suche bei ID 1.")
                 else:
                     current_id = target_addr
@@ -188,8 +203,16 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
             case TlsState.SEND_RQS:
                 # Die 50ms-Sperre (Twp) schützt das Senden hier direkt vor JEDEM Durchlauf
                 if (now - last_send) >= TWP:
-                    telegramm = build_ft12_telegram(control_byte=0x49, addr=current_id)
-                    print(f"\n  [State: SEND_RQS] Sende RQS (0x49) an ID {current_id}...")
+                    if fcb_toggle ==1:
+                        #telegramm = build_ft12_telegram(control_byte=0x69, addr=current_id)
+                        telegramm = build_ft12_short_telegram(control_byte=0x69, addr=current_id)
+                        print(f"\n  [State: SEND_RQS] Sende RQS (0x69) an ID {current_id}...")
+                    else:
+                       #telegramm = build_ft12_telegram(control_byte=0x49, addr=current_id)
+                       telegramm = build_ft12_short_telegram(control_byte=0x49, addr=current_id)
+                       print(f"\n  [State: SEND_RQS] Sende RQS (0x49) an ID {current_id}...") 
+                    fcb_toggle^=1
+                    
                     
                     ser_conn.reset_input_buffer()
                     raw_receive_buffer = b""
@@ -336,7 +359,7 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                         success = False
                         state = TlsState.FINISH_PROCESS
                     else:
-                        if current_id < 199:
+                        if current_id < LIMIT_ID_TLS:
                             raw_receive_buffer = b""
                             clear_receive_buffer = b""
                             state = TlsState.RESTART_PROCESS
@@ -345,13 +368,14 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                             state = TlsState.FINISH_PROCESS
 
             case TlsState.RESTART_PROCESS:
-                if current_id < 199:
+                if current_id < LIMIT_ID_TLS:
                     current_id += 1
                     raw_receive_buffer = b""
                     clear_receive_buffer = b""
+                    time.sleep(0.5)
                     state = TlsState.SEND_RQS
                 else:
-                    print("  [State: RESTART_PROCESS] Limit von ID 199 erreicht. Kein Sensor gefunden.")
+                    print("  [State: RESTART_PROCESS] Limit von ID DEVICE_ALL erreicht. Kein Sensor gefunden.")
                     success = False
                     state = TlsState.FINISH_PROCESS
 
@@ -368,10 +392,10 @@ def main() -> None:
     # Wir testen die zwei gängigsten TLS-Modi (8E1 und 7E1) nacheinander durch
     konfigurationen = [
         {"name": "9600 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
-        {"name": "19200 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
+        #{"name": "19200 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
         # {"name": "9600 Baud, 8O1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_ODD},
-        # {"name": "9600 Baud, 8N1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_NONE},
-        # {"name": "9600 Baud, 7E1", "bytesize": serial.SEVENBITS, "parity": serial.PARITY_EVEN},
+        #{"name": "9600 Baud, 8N1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_NONE},
+        #{"name": "9600 Baud, 7E1", "bytesize": serial.SEVENBITS, "parity": serial.PARITY_EVEN},
         # {"name": "9600 Baud, 7O1", "bytesize": serial.SEVENBITS, "parity": serial.PARITY_ODD},
         
     ]
@@ -393,7 +417,7 @@ def main() -> None:
             
             time.sleep(1.0)  # Einschwingzeit für Linux-Kernel & Wandler
 
-            reaktion = run_tls_state_machine(ser_conn=ser, target_addr=0,search_address=True)
+            reaktion = run_tls_state_machine(ser_conn=ser, target_addr=101,search_address=findId_active)
             
             ser.close()
             
@@ -413,5 +437,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Script with optional ID finder")
+    parser.add_argument(
+        "-f","--find_id",
+        action="store_true",
+        help="Sets flag toactivate ID finder"
+    )
+    args = parser.parse_args()
+    if args.find_id: findId_active = True
+
+
     main()
     input("\nDrücke ENTER zum Beenden...")
