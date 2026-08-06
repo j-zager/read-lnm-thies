@@ -27,80 +27,9 @@ class TlsState(Enum):
     WAIT_FOR_S1_FRAME = auto()
 
 
-def reverse_bits_mathematisch(b: int) -> int:
-    ergebnis = 0
-    for _ in range(8):
-        ergebnis = (ergebnis << 1) | (b & 1)
-        b >>= 1
-    return ergebnis
-
-
-# def reverse_bits(b: int) -> int:
-#     """Spiegelt die Bits eines einzelnen Bytes komplett um (LSB <-> MSB)."""
-#     # Verwandelt z.B. 01101000 (0x68) in 00010110 (0x16)
-#     return int('{:08b}'.format(b)[::-1], 2)
-
-def reverse_bits(b: int) -> int:
-    """
-    Spiegelt die Bits eines einzelnen Bytes komplett um (LSB <-> MSB).
-    Beispiel: Das Byte 0x68 wird zu 0x16.
-    """
-    # 1. Schritt: Wandle die Zahl in einen Text aus Nullen und Einsen um.
-    # ':08b' sorgt dafür, dass der Text IMMER genau 8 Zeichen lang ist (Auffüllen mit Nullen).
-    # Aus der Zahl 0x68 (dezimal 104) wird hier der Text: "01101000"
-    binaer_text = '{:08b}'.format(b)
-    
-    # 2. Schritt: Drehe den Text von hinten nach vorne um.
-    # Das [[::-1]] liest den String rückwärts (Schrittweite -1).
-    # Aus dem Text "01101000" wird hier der Text: "00010110"
-    #text[START : STOPP : SCHRITTWEITE]
-    #binaer_text[  :  : -1 ]
-    #            ▲  ▲   ▲
-    #            │  │   └── Schrittweite ist -1 (rückwärts gehen)
-    #           │  └────── Stopp ist leer (bis zum logischen Ende)
-    #          └───────── Start ist leer (beim logischen Anfang beginnen)
-
-    umgedrehter_text = binaer_text[::-1]
-    
-    # 3. Schritt: Wandle den umgedrehten Binär-Text zurück in eine echte Zahl.
-    # Die Option ', 2' sagt Python, dass es sich um eine Binärzahl (Basis 2) handelt.
-    # Aus dem Text "00010110" wird die Zahl 22, was in Hexadezimal exakt 0x16 ist.
-    ergebnis_zahl = int(umgedrehter_text, 2)
-    
-    # 4. Schritt: Gib die fertige, bit-gespiegelte Zahl zurück.
-    return ergebnis_zahl
-
-
-def unmirror_response_bytes(raw_mirrored_bytes: bytes) -> bytes:
-    """
-    Nimmt die gespiegelten Empfangsbytes vom RS485-Wandler entgegen,
-    dreht die Bits in jedem einzelnen Byte wieder um (MSB <-> LSB)
-    und gibt das korrekte Klartext-Bytearray für den Parser zurück.
-    """
-    # 1. Schritt: Erstelle eine leere Liste, um die korrigierten Zahlen zu sammeln
-    klartext_zahlen_liste = []
-    
-    # 2. Schritt: Gehe in einer klassischen Schleife jedes gespiegelte Byte einzeln durch
-    for b in raw_mirrored_bytes:
-        
-        # 3. Schritt: Wandle das aktuelle Byte in einen 8 Zeichen langen Binärtext um.
-        # Aus dem gespiegelten Sensor-Byte 0x16 wird hier der Text: "00010110"
-        binaer_text = '{:08b}'.format(b)
-        
-        # 4. Schritt: Spiegele den Binärtext rückwärts (über den Slicing-Operator [::-1]).
-        # Aus dem Text "00010110" wird wieder das Original: "01101000"
-        original_text = binaer_text[::-1]
-        
-        # 5. Schritt: Wandle den originalen Binärtext zurück in eine Ganzzahl (Basis 2).
-        # Aus dem Text "01101000" berechnet Python die Zahl 104 (was Hexadezimal 0x68 entspricht).
-        original_zahl = int(original_text, 2)
-        
-        # 6. Schritt: Hänge die korrigierte Zahl an unsere Sammel-Liste an
-        klartext_zahlen_liste.append(original_zahl)
-        
-    # 7. Schritt: Verwandle die fertige Zahlenliste in ein echtes Python-Byte-Objekt
-    return bytes(klartext_zahlen_liste)
-
+def call_ft12_builder():
+    telegramm_short = build_ft12_short_telegram(control_byte=0x69, addr=0x01)
+    telegramm = build_ft12_telegram(control_byte =0x69, addr=0x01, user_data = b"")
 
 def build_ft12_short_telegram(control_byte: int, addr: int) -> bytes:
     """Erzeugt ein mathematisch exaktes TLS FT1.2 Kurztelegramm."""
@@ -121,28 +50,7 @@ def build_ft12_telegram(control_byte: int, addr: int, user_data: bytes = b"") ->
 
     # Das normale Standard-Telegramm generieren
     normal_telegram = bytes([0x68, length, length, 0x68]) + protected_area + bytes([cs, 0x16])
-    
-    # # JETZT: Jedes Byte bitweise umdrehen für die TLS-Leitungs-Reihenfolge
-    # #mirrored_bytes = [reverse_bits(b) for b in normal_telegram]
 
-    # # 1. Schritt: Erstelle eine leere Liste, in der wir die gespiegelten Bytes sammeln.
-    # mirrored_bytes_liste = []
-
-    # # 2. Schritt: Starte eine klassische Schleife.
-    # # Wir gehen nacheinander jedes einzelne Byte aus dem normalen Telegramm durch.
-    # for b in normal_telegram:
-        
-    #     # 3. Schritt: Rufe die Umdreh-Funktion für das EINE aktuelle Byte auf.
-    #     # Das Ergebnis (die umgedrehte Zahl) speichern wir kurz zwischen.
-    #     umgedrehtes_einzel_byte = reverse_bits(b)
-        
-    #     # 4. Schritt: Hänge das umgedrehte Byte hinten an unsere Sammel-Liste an.
-    #     mirrored_bytes_liste.append(umgedrehtes_einzel_byte)
-
-    # # Am Ende verwandeln wir die Liste wieder in ein echtes Python 'bytes'-Objekt.
-    # mirrored_bytes = bytes(mirrored_bytes_liste)
-    # # print(mirrored_bytes.hex(' ').upper())
-    # # return mirrored_bytes
     print(normal_telegram.hex(' ').upper())
     return normal_telegram
 
@@ -417,7 +325,7 @@ def main() -> None:
             
             time.sleep(1.0)  # Einschwingzeit für Linux-Kernel & Wandler
 
-            reaktion = run_tls_state_machine(ser_conn=ser, target_addr=101,search_address=findId_active)
+            reaktion = run_tls_state_machine(ser_conn=ser, target_addr=110,search_address=findId_active)
             
             ser.close()
             
