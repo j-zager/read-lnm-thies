@@ -65,15 +65,13 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
     is_scan_mode = search_address
     last_send = 0.0
     success = False
-    raw_receive_buffer = b""
     clear_receive_buffer = b""
     fcb_toggle = 1
 
     # --- HIER DIE HILFSFUNKTION DEFINIEREN ---
     def reset_buffers_and_timer():
-        nonlocal clear_receive_buffer, raw_receive_buffer, last_send
+        nonlocal clear_receive_buffer, last_send
         clear_receive_buffer = b""
-        raw_receive_buffer = b""
         last_send = time.time()  # nutzt direkt das aktuelle 'now' via time.time()
         ser_conn.reset_input_buffer()  # Schadet nie, das hier direkt mitzuerledigen!
 
@@ -88,13 +86,9 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
         if ser_conn.in_waiting > 0:
             bytes_waiting = ser_conn.in_waiting
             new_raw_bytes = ser_conn.read(bytes_waiting)
-            raw_receive_buffer += new_raw_bytes
-            
-            # new_clear_bytes = unmirror_response_bytes(new_raw_bytes)
-            new_clear_bytes = raw_receive_buffer
-            clear_receive_buffer += new_clear_bytes
-            #print(f"  [Leitungs-Event] Empfangen: {bytes_waiting} Bytes | Raw: {new_raw_bytes.hex().upper()} | Klar: {new_clear_bytes.hex().upper()}")
-            print(f"  [Leitungs-Event] Empfangen: {bytes_waiting} Bytes | Raw: {new_raw_bytes.hex('').upper()} | Klar: {new_clear_bytes.hex('').upper()}")
+            clear_receive_buffer += new_raw_bytes
+            #print(f"  [Leitungs-Event] Empfangen: {bytes_waiting} Bytes | Raw: {new_raw_bytes.hex().upper()} ")
+            print(f"  [Leitungs-Event] Empfangen: {bytes_waiting} Bytes | Raw: {new_raw_bytes.hex('').upper()} ")
 
         # --- SWITCH-CASE STRUKTUR VIA MATCH-CASE ---
         match state:
@@ -123,7 +117,6 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                     
                     
                     ser_conn.reset_input_buffer()
-                    raw_receive_buffer = b""
                     clear_receive_buffer = b""
                     
                     ser_conn.write(telegramm)
@@ -140,7 +133,6 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                 if (now - last_send) >= TAP:
                     print(f"  [Timeout] ID {current_id} antwortet nicht.")
                     clear_receive_buffer = b""
-                    raw_receive_buffer = b""
                     last_send = now
                     if is_scan_mode: 
                         state = TlsState.RESTART_PROCESS 
@@ -151,6 +143,9 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                     if clear_receive_buffer[0] == 0x68:
                         # Startzeichen gefunden! Weiter zum Header
                         print("Found start sign 0x68")
+                        state = TlsState.WAIT_FOR_S1_HEADER
+                    elif clear_receive_buffer[0] == 0x10:
+                        print("Found start sign 0x10")
                         state = TlsState.WAIT_FOR_S1_HEADER
                     else:
                         # Müll wegschneiden, Hauptschleife liest im nächsten Takt weiter
@@ -163,7 +158,6 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
             case TlsState.WAIT_FOR_S1_HEADER:
                 if (now - last_send) >= TAP:
                     clear_receive_buffer = b""
-                    raw_receive_buffer = b""
                     last_send = now
 
                     if is_scan_mode: 
@@ -188,7 +182,6 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
             case TlsState.WAIT_FOR_S1_FRAME:
                 if (now - last_send) >= TAP:
                     clear_receive_buffer = b""
-                    raw_receive_buffer = b""
                     last_send = now
                     if is_scan_mode: 
                         state = TlsState.RESTART_PROCESS
@@ -198,11 +191,17 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
 
                 else:
                     # Schutz vor IndexError: Mindestens 2 Bytes nötig für Längen-Byte
-                    if len(clear_receive_buffer) < 2:
+                    if clear_receive_buffer[0] == 0xE5:
+                        print("E5h detected!")
+                        state = TlsState.FINISH_PROCESS
+                    elif len(clear_receive_buffer) < 2:
                         print("Index Error - this case should not be entered!")
                     else:
-                        laengen_byte = clear_receive_buffer[1]
-                        erwartete_gesamtlaenge = laengen_byte + 6
+                        if clear_receive_buffer[0] == 0x68:
+                            laengen_byte = clear_receive_buffer[1]
+                            erwartete_gesamtlaenge = laengen_byte + 6
+                        elif clear_receive_buffer[0] == 0x10:
+                            erwartete_gesamtlaenge = 5
 
                         if len(clear_receive_buffer) >= erwartete_gesamtlaenge:
                             # Telegramm ist vollständig da! Jetzt final prüfen:
@@ -214,16 +213,23 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                                 end_byte_ok = False
 
 
-                            geschuetzter_bereich = clear_receive_buffer[4 : 4 + laengen_byte]
-                            berechnete_cs = sum(geschuetzter_bereich) & 0xFF
-                            empfangene_cs = clear_receive_buffer[erwartete_gesamtlaenge - 2]
+                            if clear_receive_buffer[0] == 0x68:
+                                geschuetzter_bereich = clear_receive_buffer[4 : 4 + laengen_byte]
+                                berechnete_cs = sum(geschuetzter_bereich) & 0xFF
+                                empfangene_cs = clear_receive_buffer[erwartete_gesamtlaenge - 2]
+                            elif clear_receive_buffer[0] == 0x10:
+                                bereich = clear_receive_buffer[1 : 3]
+                                berechnete_cs = sum(bereich) & 0xFF
+                                empfangene_cs = clear_receive_buffer[3]
+                            else:
+                                berechnete_cs = 0
+                                empfangene_cs = 0xff
                             
                             if end_byte_ok and (berechnete_cs == empfangene_cs):
                                 print(f"  [ERFOLG] Gültiges S1-Telegramm von ID {current_id} empfangen!")
                                 
                                 # Puffer restlos leeren für die RES0-Phase
                                 clear_receive_buffer = b""
-                                raw_receive_buffer = b""
                                 ser_conn.reset_input_buffer()
                                 
                                 last_send = now
@@ -231,7 +237,6 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                             else:
                                 print("  [WARNUNG] Telegramm korrupt (Endzeichen oder CS falsch).")
                                 clear_receive_buffer = b""
-                                raw_receive_buffer = b""
                                 last_send = now
                                 ser_conn.reset_input_buffer()
                                 if is_scan_mode: 
@@ -242,10 +247,10 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
 
             case TlsState.SEND_RES0:
                 if (now - last_send) >= TWP:
-                    telegramm = build_ft12_telegram(control_byte=0x40, addr=current_id)
+                    #telegramm = build_ft12_telegram(control_byte=0x40, addr=current_id)
+                    telegramm = build_ft12_short_telegram(control_byte=0x40, addr=current_id)
                     print(f"\n  [State: SEND_RES0] Wartezeit Twp erfüllt. Sende RES0 (0x40) an ID {current_id}...")
                     
-                    raw_receive_buffer = b""
                     clear_receive_buffer = b""
                     ser_conn.write(telegramm)
                     ser_conn.flush()
@@ -268,7 +273,6 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                         state = TlsState.FINISH_PROCESS
                     else:
                         if current_id < LIMIT_ID_TLS:
-                            raw_receive_buffer = b""
                             clear_receive_buffer = b""
                             state = TlsState.RESTART_PROCESS
                         else:
@@ -278,7 +282,6 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
             case TlsState.RESTART_PROCESS:
                 if current_id < LIMIT_ID_TLS:
                     current_id += 1
-                    raw_receive_buffer = b""
                     clear_receive_buffer = b""
                     time.sleep(0.5)
                     state = TlsState.SEND_RQS
@@ -292,8 +295,7 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                 print(f"\n*** [State: FINISH_PROCESS] Beende State Machine. Ergebnis Success = {success} (Finale ID: {current_id}) ***\n")
                 return success
 
-        # KORREKTUR: Exakt 1 Millisekunde Sleep für optimale CPU-Schonung bei 9600 Baud
-        time.sleep(0.001)
+        time.sleep(0.001) #1 Millisekunde Sleep für optimale CPU-Schonung bei 9600 Baud
 
 
 def main() -> None:
