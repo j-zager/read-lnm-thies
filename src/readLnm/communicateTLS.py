@@ -72,8 +72,8 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
     def reset_buffers_and_timer():
         nonlocal clear_receive_buffer, last_send
         clear_receive_buffer = b""
-        last_send = time.time()  # nutzt direkt das aktuelle 'now' via time.time()
-        ser_conn.reset_input_buffer()  # Schadet nie, das hier direkt mitzuerledigen!
+        last_send = time.time() 
+        ser_conn.reset_input_buffer()  
 
 
     print(f"\n*** Starte TLS State Machine (Scan-Modus: {is_scan_mode}, Start-Ziel-ID: {target_addr}) ***")
@@ -146,7 +146,7 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                         state = TlsState.WAIT_FOR_S1_HEADER
                     elif clear_receive_buffer[0] == 0x10:
                         print("Found start sign 0x10")
-                        state = TlsState.WAIT_FOR_S1_HEADER
+                        state = TlsState.WAIT_FOR_S1_FRAME
                     else:
                         # Müll wegschneiden, Hauptschleife liest im nächsten Takt weiter
                         print(f"trash data{clear_receive_buffer[0]}")
@@ -166,7 +166,7 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                         state = TlsState.FINISH_PROCESS
                      
                 elif len(clear_receive_buffer) >= 4:
-                    if clear_receive_buffer[3] == 0x68:
+                    if clear_receive_buffer[0] == 0x68 and clear_receive_buffer[3] == 0x68:
                         # Header ist gültig (Byte 0 und 3 sind 0x68). Weiter zum Rest des Rahmens.
                         print("Header is valid:buffer[3] = 0x68")
                         state = TlsState.WAIT_FOR_S1_FRAME
@@ -187,16 +187,11 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                         state = TlsState.RESTART_PROCESS
                     else:
                         state = TlsState.FINISH_PROCESS
-
-
                 else:
-                    # Schutz vor IndexError: Mindestens 2 Bytes nötig für Längen-Byte
-                    if clear_receive_buffer[0] == 0xE5:
-                        print("E5h detected!")
-                        state = TlsState.FINISH_PROCESS
-                    elif len(clear_receive_buffer) < 2:
-                        print("Index Error - this case should not be entered!")
+                    if len(clear_receive_buffer) < 2:                     # Schutz vor IndexError: Mindestens 2 Bytes nötig für Längen-Byte
+                        pass
                     else:
+                        erwartete_gesamtlaenge = 0xff
                         if clear_receive_buffer[0] == 0x68:
                             laengen_byte = clear_receive_buffer[1]
                             erwartete_gesamtlaenge = laengen_byte + 6
@@ -258,15 +253,7 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                     state = TlsState.WAIT_FOR_RR
 
             case TlsState.WAIT_FOR_RR:
-                # Die Reset-Quittung (RR) besteht laut Norm aus exakt 1 Byte (0xE5)
-                if len(clear_receive_buffer) >= 1:
-                    # Wir prüfen, ob das Zeichen 0xE5 im Puffer liegt
-                    if 0xE5 in clear_receive_buffer:
-                        print(f"  [State: WAIT_FOR_RR] Einzelzeichen-Quittung (0xE5) von ID {current_id} erfolgreich empfangen!")
-                        success = True
-                        last_send = now
-                        state = TlsState.FINISH_PROCESS
-                elif (now - last_send) >= TAP:
+                if (now - last_send) >= TAP:
                     print(f"  [State: WAIT_FOR_RR] Timeout (Tap={int(TAP*1000)}ms) für Reset-Quittung abgelaufen.")
                     if not is_scan_mode:
                         success = False
@@ -279,16 +266,28 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
                             success = False
                             state = TlsState.FINISH_PROCESS
 
+                # Die Reset-Quittung (RR) besteht laut Norm aus exakt 1 Byte (0xE5)
+                elif len(clear_receive_buffer) >= 1:
+                    # Wir prüfen, ob das Zeichen 0xE5 im Puffer liegt
+                    if 0xE5 in clear_receive_buffer:
+                        print(f"  [State: WAIT_FOR_RR] Einzelzeichen-Quittung (0xE5) von ID {current_id} erfolgreich empfangen!")
+                        success = True
+                        last_send = now
+                        state = TlsState.FINISH_PROCESS
+
+
             case TlsState.RESTART_PROCESS:
-                if current_id < LIMIT_ID_TLS:
-                    current_id += 1
-                    clear_receive_buffer = b""
-                    time.sleep(0.5)
-                    state = TlsState.SEND_RQS
-                else:
+                if current_id >= LIMIT_ID_TLS:
                     print("  [State: RESTART_PROCESS] Limit von ID DEVICE_ALL erreicht. Kein Sensor gefunden.")
                     success = False
                     state = TlsState.FINISH_PROCESS
+                elif (now - last_send) >= 0.500:
+                    current_id += 1
+                    clear_receive_buffer = b""
+                    ser_conn.reset_input_buffer()
+                    last_send = now - TWP
+                    state = TlsState.SEND_RQS
+
 
 
             case TlsState.FINISH_PROCESS:
@@ -299,7 +298,6 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
 
 
 def main() -> None:
-    # Wir testen die zwei gängigsten TLS-Modi (8E1 und 7E1) nacheinander durch
     konfigurationen = [
         {"name": "9600 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
         #{"name": "19200 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
