@@ -3,7 +3,7 @@ from readLnm.myLogger import get_logger, setup_logger
 
 logger = get_logger(__name__)
 
-def read(port="/dev/ttyACM0"):
+def monitor(port="/dev/ttyACM0"):
         # Logger JETZT konfigurieren
     setup_logger(
         debug_mode=True,
@@ -11,8 +11,8 @@ def read(port="/dev/ttyACM0"):
     )
 
     try: 
-        par=serial.PARITY_NONE
-        #parity=serial.PARITY_EVEN
+        par=serial.PARITY_NONE #read sensor bootlader data
+        #par=serial.PARITY_EVEN
         ser = serial.Serial(
             port,
             baudrate=9600,
@@ -34,7 +34,7 @@ def read(port="/dev/ttyACM0"):
         print(f"Unknown error at {port}: {repr(error)}")
         return None
 
-    print(f"Nur Reader läuft auf {port} (9600 {par})")
+    print(f"Monitor runs at {port} (9600 {par})")
     response = bytearray()
 
     while True:
@@ -44,14 +44,28 @@ def read(port="/dev/ttyACM0"):
         response.extend(b)
         # Prüfen auf STX (0x02)
         if b == b'\x02':
-            print("STX (0x02) empfangen")
+            print("STX (0x02) received")
 
         # Prüfen auf ETX (0x03)
-        if b == b'\x03':
-            print("ETX (0x03) empfangen")
+        elif b == b'\x03':
+            print("ETX (0x03) received")
             logger.debug(f"RX ← {response.hex(' ')}")
             logger.debug(f"ASCII: {response.decode(errors='ignore')}")
             response.clear()
+
+
+
+        elif b == b'\x10':
+            print("Short TLS telegramm start indication (0x10 received")
+
+        elif b == b'\x68':
+            print("Long TLS telegramm start indication (0x68) received")
+
+        elif b == b'\x16':
+            print("General TLS telegramm termination indication (0x16) received")
+
+        elif b == b'\xE5':
+            print("TLS telegramm Acknowledge indication (0xE5) received")
 
         #print(f"RX ← {b.hex(' ')}  ASCII: {b.decode(errors='ignore')}")
         logger.debug(f"RX ← {b.hex(' ')}  ASCII: {b.decode(errors='ignore')}")
@@ -60,4 +74,4 @@ def read(port="/dev/ttyACM0"):
 
     
 if __name__ == "__main__":
-    read()
+    monitor()

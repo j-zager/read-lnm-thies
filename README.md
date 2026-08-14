@@ -19,7 +19,7 @@ The tool can be executed in three different ways:
     python -m readLnm -d
     
 
-## 🚀 Features
+##  Features
 
     Interactive CLI menu for building telegrams
 
@@ -71,7 +71,7 @@ python -m readLnm.communicateLnm
 
 
 
-## 🧭 CLI Workflow
+##  CLI Workflow
 
 The CLI guides the user through:
 
@@ -109,20 +109,20 @@ Examples:
 03SB\r
 00BR00005\r
 
-## 🧠 Finite State Machine (FSM)
+##  Finite State Machine (FSM)
 
 The communication flow is controlled by a small FSM with the following states:
 State	Description
 INIT	Setup and initialization
 REQUEST_MESSAGE	Build telegram via CLI
-SEND_MESSAGE	Send telegram over RS232
+SEND_MESSAGE	Send telegram over RS485
 CHECK_MESSAGE	Validate response
 RECEIVE_MESSAGE	Process received data
 IDLE	Wait for next action
 EXIT	Clean shutdown of ports and resources
 
 
-## 📚 Command Dictionary
+##  Command Dictionary
 
 All supported commands are defined in a structured dictionary:
 
@@ -150,4 +150,20 @@ Start emulator with port x:
 Start main programm and use virtual port option and enter port y. Note virtual ports work with 8N1.
 
 
+## Running the TLS communication module directly
 
+This calls the main function inside the module communicateTLS.py:
+
+a) Start with default configured adress:
+
+python -m readLnm.communicateTLS
+
+
+b) Start with adress scanning:
+
+python -m readLnm.communicateTLS -f
+
+
+## Running RS485 bus monitoring module directly
+
+python -m readLnm.monitor

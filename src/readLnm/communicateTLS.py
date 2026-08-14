@@ -7,7 +7,9 @@ from enum import Enum, auto
 PORT = "/dev/ttyACM0"  # Oder "/dev/ttyUSB0"
 DEVICE_ALL = 0xFF
 DEVICE_ID = 0       # Deine ID = 0
-LIMIT_ID_TLS = 199
+LIMIT_ID_TLS = 255
+
+UNIQUE_ID = 110
 
 # Timing-Konstanten nach TLS-Spezifikation (in Sekunden)
 TAP = 0.120  # 120 ms Antwortüberwachungszeit der Primary
@@ -299,10 +301,10 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
 
 def main() -> None:
     konfigurationen = [
-        {"name": "9600 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
+        #{"name": "9600 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
         #{"name": "19200 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
         # {"name": "9600 Baud, 8O1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_ODD},
-        #{"name": "9600 Baud, 8N1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_NONE},
+        {"name": "9600 Baud, 8N1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_NONE},
         #{"name": "9600 Baud, 7E1", "bytesize": serial.SEVENBITS, "parity": serial.PARITY_EVEN},
         # {"name": "9600 Baud, 7O1", "bytesize": serial.SEVENBITS, "parity": serial.PARITY_ODD},
         
@@ -325,7 +327,7 @@ def main() -> None:
             
             time.sleep(1.0)  # Einschwingzeit für Linux-Kernel & Wandler
 
-            reaktion = run_tls_state_machine(ser_conn=ser, target_addr=110,search_address=findId_active)
+            reaktion = run_tls_state_machine(ser_conn=ser, target_addr=UNIQUE_ID,search_address=findId_active)
             
             ser.close()
             
