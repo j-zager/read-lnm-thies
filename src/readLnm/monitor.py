@@ -34,7 +34,7 @@ def monitor(port="/dev/ttyACM0"):
         print(f"Unknown error at {port}: {repr(error)}")
         return None
 
-    print(f"Monitor runs at {port} (9600 {par})")
+    logger.debug(f"Monitor runs at {port} (9600 {par})")
     response = bytearray()
 
     while True:

@@ -167,3 +167,18 @@ python -m readLnm.communicateTLS -f
 ## Running RS485 bus monitoring module directly
 
 python -m readLnm.monitor
+
+
+## Running BASt TLS message builder
+Call a function to print a BASt long and short telegram with UNIQUE_ID (adress) and CONTROL_BYTE (controlbyte) to verify message building.
+
+python
+
+>>> 
+from readLnm.communicateTLS import call_ft12_builder
+
+>>> 
+call_ft12_builder()
+
+>>>
+exit

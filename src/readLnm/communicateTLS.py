@@ -10,6 +10,7 @@ DEVICE_ID = 0       # Deine ID = 0
 LIMIT_ID_TLS = 255
 
 UNIQUE_ID = 110
+CONTROL_BYTE = 0x49
 
 # Timing-Konstanten nach TLS-Spezifikation (in Sekunden)
 TAP = 0.120  # 120 ms Antwortüberwachungszeit der Primary
@@ -30,11 +31,11 @@ class TlsState(Enum):
 
 
 def call_ft12_builder():
-    telegramm_short = build_ft12_short_telegram(control_byte=0x69, addr=0x01)
-    telegramm = build_ft12_telegram(control_byte =0x69, addr=0x01, user_data = b"")
+    telegramm_short = build_ft12_short_telegram(control_byte=CONTROL_BYTE, addr=UNIQUE_ID)
+    telegramm = build_ft12_telegram(control_byte =CONTROL_BYTE, addr=UNIQUE_ID, user_data = b"")
 
 def build_ft12_short_telegram(control_byte: int, addr: int) -> bytes:
-    """Erzeugt ein mathematisch exaktes TLS FT1.2 Kurztelegramm."""
+    """Creates a BASt TLS FT1.2 short telegramm."""
     protected_area = bytes([control_byte, addr]) 
     cs = sum(protected_area) & 0xFF
 
@@ -45,7 +46,7 @@ def build_ft12_short_telegram(control_byte: int, addr: int) -> bytes:
 
 
 def build_ft12_telegram(control_byte: int, addr: int, user_data: bytes = b"") -> bytes:
-    """Erzeugt ein mathematisch exaktes TLS FT1.2 Telegramm."""
+    """Creates a BASt TLS FT1.2 long telegramm."""
     protected_area = bytes([control_byte, addr]) + user_data
     length = len(protected_area)
     cs = sum(protected_area) & 0xFF
@@ -107,15 +108,18 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
             case TlsState.SEND_RQS:
                 # Die 50ms-Sperre (Twp) schützt das Senden hier direkt vor JEDEM Durchlauf
                 if (now - last_send) >= TWP:
-                    if fcb_toggle ==1:
-                        #telegramm = build_ft12_telegram(control_byte=0x69, addr=current_id)
-                        telegramm = build_ft12_short_telegram(control_byte=0x69, addr=current_id)
-                        print(f"\n  [State: SEND_RQS] Sende RQS (0x69) an ID {current_id}...")
-                    else:
-                       #telegramm = build_ft12_telegram(control_byte=0x49, addr=current_id)
-                       telegramm = build_ft12_short_telegram(control_byte=0x49, addr=current_id)
-                       print(f"\n  [State: SEND_RQS] Sende RQS (0x49) an ID {current_id}...") 
-                    fcb_toggle^=1
+                    # if fcb_toggle ==1:
+                    #     #telegramm = build_ft12_telegram(control_byte=0x69, addr=current_id)
+                    #     telegramm = build_ft12_short_telegram(control_byte=0x79, addr=current_id)
+                    #     print(f"\n  [State: SEND_RQS] Sende RQS (0x79) an ID {current_id}...")
+                    # elif fcb_toggle ==0:
+                    #    #telegramm = build_ft12_telegram(control_byte=0x49, addr=current_id)
+                    #    telegramm = build_ft12_short_telegram(control_byte=0x59, addr=current_id)
+                    #    print(f"\n  [State: SEND_RQS] Sende RQS (0x59) an ID {current_id}...") 
+                    # fcb_toggle^=1
+
+                    telegramm = build_ft12_short_telegram(control_byte=0x49, addr=current_id)
+                    print(f"\n  [State: SEND_RQS] Sende RQS (0x49) an ID {current_id}...") 
                     
                     
                     ser_conn.reset_input_buffer()
@@ -301,7 +305,7 @@ def run_tls_state_machine(ser_conn: serial.Serial, target_addr: int, search_addr
 
 def main() -> None:
     konfigurationen = [
-        #{"name": "9600 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
+        {"name": "9600 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
         #{"name": "19200 Baud, 8E1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_EVEN},
         # {"name": "9600 Baud, 8O1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_ODD},
         {"name": "9600 Baud, 8N1", "bytesize": serial.EIGHTBITS, "parity": serial.PARITY_NONE},
